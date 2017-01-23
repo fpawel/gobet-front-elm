@@ -40,37 +40,43 @@ type Model
 type alias Game =
     { eventID : Int
     , marketID : Int
+
+    , home : String
+    , away : String
+
     , page : Int
     , order : Int
     , result : String
-    , startTime : String
-    , odds : Odds
-    , home : String
-    , away : String
-    , inplay : Bool
-    , startTimeChanged : Bool
-    , resultChanged : Bool
-    , oddsChanged : Bool
-    }
+    , time : String
 
-
-type alias Odds =
-    { win1 : Maybe Float
+    , win1 : Maybe Float
     , win2 : Maybe Float
     , draw1 : Maybe Float
     , draw2 : Maybe Float
     , lose1 : Maybe Float
     , lose2 : Maybe Float
+
+    , inplay : Bool
+    , utime : Bool
+    , uresult : Bool
+
     }
 
+
+type alias MaybeMaybeFloat = Maybe(Maybe Float)
 
 type alias GameCahnges =
     { eventID : Int
     , page : Maybe Int
     , order : Maybe Int
-    , startTime : Maybe String
+    , time : Maybe String
     , result : Maybe String
-    , odds : Maybe Odds
+    , win1 : MaybeMaybeFloat
+    , win2 : MaybeMaybeFloat
+    , draw1 : MaybeMaybeFloat
+    , draw2 : MaybeMaybeFloat
+    , lose1 : MaybeMaybeFloat
+    , lose2 : MaybeMaybeFloat
     }
 
 
@@ -155,16 +161,21 @@ update msg (Model m) =
 
 
 updateGame : Game -> GameCahnges -> Game
-updateGame x { page, order, startTime, result, odds } =
+updateGame x { page, order, time, result, win1, win2, draw1, draw2, lose1, lose2 } =
     { x
         | page = Maybe.withDefault x.page page
         , order = Maybe.withDefault x.order order
-        , startTime = Maybe.withDefault x.startTime startTime
+        , time = Maybe.withDefault x.time time
         , result = Maybe.withDefault x.result result
-        , odds = Maybe.withDefault x.odds odds
-        , oddsChanged = isJust odds
-        , startTimeChanged = isJust startTime
-        , resultChanged = isJust result
+        , win1 = Maybe.withDefault x.win1 win1
+        , win2 = Maybe.withDefault x.win2 win2
+        , draw1 = Maybe.withDefault x.draw1 draw1
+        , draw2 = Maybe.withDefault x.draw2 draw2
+        , lose1 = Maybe.withDefault x.lose1 lose1
+        , lose2 = Maybe.withDefault x.lose2 lose2
+
+        , utime = isJust time
+        , uresult = isJust result
     }
 
 
@@ -232,9 +243,21 @@ subscriptions (Model { path }) =
 -- DECODERS
 
 
-decoderOdds : Decoder Odds
-decoderOdds =
-    decode Odds
+
+
+
+decoderGame : Decoder Game
+decoderGame =
+    decode Game
+        |> required "event_id" D.int
+        |> required "market_id" D.int
+        |> required "home" D.string
+        |> required "away" D.string
+        |> required "page" D.int
+        |> required "order" D.int
+        |> optional "result" D.string ""
+        |> required "time" D.string
+
         |> optional "win1" (D.maybe D.float) Nothing
         |> optional "win2" (D.maybe D.float) Nothing
         |> optional "draw1" (D.maybe D.float) Nothing
@@ -242,34 +265,32 @@ decoderOdds =
         |> optional "lose1" (D.maybe D.float) Nothing
         |> optional "lose2" (D.maybe D.float) Nothing
 
-
-decoderGame : Decoder Game
-decoderGame =
-    decode Game
-        |> required "eventID" D.int
-        |> required "marketID" D.int
-        |> required "page" D.int
-        |> required "order" D.int
-        |> required "result" D.string
-        |> required "startTime" D.string
-        |> optional "odds" decoderOdds (Odds Nothing Nothing Nothing Nothing Nothing Nothing)
-        |> required "home" D.string
-        |> required "away" D.string
         |> hardcoded True
         |> hardcoded False
         |> hardcoded False
-        |> hardcoded False
+
+
+
+decoderMaybeFloat : Decoder (Maybe (Maybe Float))
+decoderMaybeFloat =
+  (D.maybe (D.maybe D.float))
 
 
 decoderGameCahnges : Decoder GameCahnges
 decoderGameCahnges =
     decode GameCahnges
-        |> required "eventID" D.int
+        |> required "event_id" D.int
         |> optional "page" (D.maybe D.int) Nothing
         |> optional "order" (D.maybe D.int) Nothing
-        |> optional "startTime" (D.maybe D.string) Nothing
+        |> optional "time" (D.maybe D.string) Nothing
         |> optional "result" (D.maybe D.string) Nothing
-        |> optional "odds" (D.maybe decoderOdds) Nothing
+
+        |> optional "win1" decoderMaybeFloat Nothing
+        |> optional "win2" decoderMaybeFloat Nothing
+        |> optional "draw1" decoderMaybeFloat Nothing
+        |> optional "draw2" decoderMaybeFloat Nothing
+        |> optional "lose1" decoderMaybeFloat Nothing
+        |> optional "lose2" decoderMaybeFloat Nothing
 
 
 decoderReplyFromServer : Decoder ReplyFromServer
@@ -277,8 +298,8 @@ decoderReplyFromServer =
     decode ReplyFromServer
         |> optional "inplay" (D.list decoderGame) []
         |> optional "outplay" (D.list D.int) []
-        |> optional "changes" (D.list decoderGameCahnges) []
-        |> optional "id" (D.list D.int) []
+        |> optional "game_changes" (D.list decoderGameCahnges) []
+        |> optional "request_id" (D.list D.int) []
 
 
 decodeReplyFromServer : String -> Msg
@@ -299,7 +320,7 @@ encodeReplyToServer : ReplyToServer -> E.Value
 encodeReplyToServer x =
     object
         [ ( "games", E.list (List.map encodeGame x.games) )
-        , ( "id", E.list (List.map E.int x.id) )
+        , ( "request_id", E.list (List.map E.int x.id) )
         ]
 
 
@@ -307,26 +328,25 @@ encodeGame : Game -> E.Value
 encodeGame x =
     let
         encodedOdds =
-            [ ( "win1", x.odds.win1 )
-            , ( "win2", x.odds.win2 )
-            , ( "draw1", x.odds.draw1 )
-            , ( "draw2", x.odds.draw2 )
-            , ( "lose1", x.odds.lose1 )
-            , ( "lose2", x.odds.lose2 )
+            [ ( "win1", x.win1 )
+            , ( "win2", x.win2 )
+            , ( "draw1", x.draw1 )
+            , ( "draw2", x.draw2 )
+            , ( "lose1", x.lose1 )
+            , ( "lose2", x.lose2 )
             ]
                 |> List.filterMap
                     (\( k, v ) ->
                         v |> Maybe.map (\v -> ( k, E.float v ))
                     )
-                |> object
+
     in
-        [ ( "eventID", E.int x.eventID )
+        [ ( "event_id", E.int x.eventID )
         , ( "page", E.int x.page )
         , ( "order", E.int x.order )
-        , ( "startTime", E.string x.startTime )
+        , ( "time", E.string x.time )
         , ( "result", E.string x.result )
-        , ( "odds", encodedOdds )
-        ]
+        ] ++ encodedOdds
             |> object
 
 
@@ -353,7 +373,7 @@ viewGame getCountryByEventID x =
             td (jello_2s_attrs anim) [ Html.text s ]
 
         odd y =
-            td_ x.oddsChanged <| Maybe.withDefault "" <| Maybe.map toString y
+            td [] [ Html.text <| Maybe.withDefault "" <| Maybe.map toString y ]
 
         countryStr =
             getCountryByEventID x.eventID
@@ -361,15 +381,15 @@ viewGame getCountryByEventID x =
         [ td [] [ Html.text <| (toString (x.page + 1)) ++ "." ++ (toString (x.order + 1)) ]
         , td [] [ Html.text countryStr ]
         , td [ Attr.class "home-team" ] [ Html.text x.home ]
-        , td_ x.resultChanged x.result
+        , td_ x.uresult x.result
         , td [ Attr.class "away-team" ] [ Html.text x.away ]
-        , td_ x.startTimeChanged x.startTime
-        , odd x.odds.win1
-        , odd x.odds.win2
-        , odd x.odds.draw1
-        , odd x.odds.draw2
-        , odd x.odds.lose1
-        , odd x.odds.lose2
+        , td_ x.utime x.time
+        , odd x.win1
+        , odd x.win2
+        , odd x.draw1
+        , odd x.draw2
+        , odd x.lose1
+        , odd x.lose2
         ]
             |> tr (bounceInUp_2s_attrs x.inplay)
 

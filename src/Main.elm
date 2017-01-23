@@ -25,7 +25,6 @@ type Msg
     = MsgFootball Football.Msg
 
 
-
 type alias Model =
     { football : Football.Model
     }
@@ -38,10 +37,11 @@ type alias AppInit =
 
 init : AppInit -> ( Model, Cmd Msg )
 init { location } =
-  let
-    ( mfb, cmd ) = Football.init location
-  in
-    { football = mfb } ! [ Cmd.map MsgFootball cmd ]
+    let
+        ( mfb, cmd ) =
+            Football.init location
+    in
+        { football = mfb } ! [ Cmd.map MsgFootball cmd ]
 
 
 
@@ -51,12 +51,12 @@ init { location } =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
-      MsgFootball msgfb ->
-        let
-          ( mfb, cmdfb ) =
-            Football.update msgfb m.football
-        in
-          { m | football = mfb } ! [ Cmd.map MsgFootball cmdfb ]
+        MsgFootball msgfb ->
+            let
+                ( mfb, cmdfb ) =
+                    Football.update msgfb m.football
+            in
+                { m | football = mfb } ! [ Cmd.map MsgFootball cmdfb ]
 
 
 
@@ -68,8 +68,6 @@ subscriptions model =
     let
         subFootball =
             Football.subscriptions model.football
-
-
     in
         Sub.batch
             [ Sub.map MsgFootball subFootball
@@ -79,11 +77,6 @@ subscriptions model =
 
 -- VIEW
 -- "☰"
-
-
-
-
-
 
 
 view : Model -> Html Msg
