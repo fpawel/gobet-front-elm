@@ -32,38 +32,33 @@ type Model
         { games : List Game
         , path :
             { host : String, protocol : String }
-            -- счётчик миллисекунд задержки отправки запроса серверу
-        , counter : Int
         }
 
 
 type alias Game =
     { eventID : Int
     , marketID : Int
-
     , home : String
     , away : String
-
     , page : Int
     , order : Int
     , result : String
     , time : String
-
     , win1 : Maybe Float
     , win2 : Maybe Float
     , draw1 : Maybe Float
     , draw2 : Maybe Float
     , lose1 : Maybe Float
     , lose2 : Maybe Float
-
     , inplay : Bool
     , utime : Bool
     , uresult : Bool
-
     }
 
 
-type alias MaybeMaybeFloat = Maybe(Maybe Float)
+type alias MaybeMaybeFloat =
+    Maybe (Maybe Float)
+
 
 type alias GameCahnges =
     { eventID : Int
@@ -82,82 +77,34 @@ type alias GameCahnges =
 
 type Msg
     = MsgReplyFromServer ReplyFromServer
-    | MsgReplyToServer ReplyToServer
-    | MsgTick Time.Time
 
-
-type alias ReplyToServer =
-    { games : List Game
-    , id : List Int
-    }
 
 
 type alias ReplyFromServer =
     { inplay : List Game
     , outplay : List Int
     , changes : List GameCahnges
-    , id : List Int
+    , hashCode : String
     }
 
 
 init : { host : String, protocol : String } -> ( Model, Cmd Msg )
 init path =
-    Model { games = [], path = path, counter = 0 } ! []
-
-
-msgReplyToServer : List Game -> Cmd Msg
-msgReplyToServer games =
-    let
-        gen =
-            Random.list 5 (Random.int 0 20)
-                |> Random.map (\id -> { games = games, id = id })
-    in
-        Random.generate MsgReplyToServer gen
-
-
-isEmptyReplyFromServer : ReplyFromServer -> Bool
-isEmptyReplyFromServer x =
-    case ( x.inplay, x.outplay, x.changes, x.id ) of
-        ( [], [], [], _ :: _ ) ->
-            True
-
-        _ ->
-            False
+    Model { games = [], path = path } ! []
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg (Model m) =
     case msg of
-        MsgTick _ ->
-            case m.counter of
-                0 ->
-                    Model m ! []
-
-                1 ->
-                    Model { m | counter = 0 } ! [ msgReplyToServer m.games ]
-
-                n ->
-                    Model { m | counter = n - 1 } ! []
-
-        MsgReplyToServer replyToServer ->
-            Model m
-                ! [ sendWebsocket
-                        m.path
-                        replyToServer
-                  ]
-
         MsgReplyFromServer replyFromServer ->
             let
-                counter =
-                    if isEmptyReplyFromServer replyFromServer then
-                        10
-                    else
-                        3
-
                 games =
                     updateGamesList replyFromServer m.games
+
+                answer =
+                    WebSocket.send (websocketURL m.path) replyFromServer.hashCode
             in
-                Model { m | counter = counter, games = games } ! []
+                Model { m | games = games } ! [ answer ]
 
 
 updateGame : Game -> GameCahnges -> Game
@@ -173,7 +120,6 @@ updateGame x { page, order, time, result, win1, win2, draw1, draw2, lose1, lose2
         , draw2 = Maybe.withDefault x.draw2 draw2
         , lose1 = Maybe.withDefault x.lose1 lose1
         , lose2 = Maybe.withDefault x.lose2 lose2
-
         , utime = isJust time
         , uresult = isJust result
     }
@@ -220,13 +166,6 @@ websocketURL path =
     Help.Utils.websocketURL path ++ "/football"
 
 
-sendWebsocket : { a | host : String, protocol : String } -> ReplyToServer -> Cmd msg
-sendWebsocket path reply =
-    (encodeReplyToServer reply)
-        |> E.encode 4
-        |> WebSocket.send (websocketURL path)
-
-
 
 -- SUBSCRIPTIONS
 
@@ -234,16 +173,12 @@ sendWebsocket path reply =
 subscriptions : Model -> Sub Msg
 subscriptions (Model { path }) =
     [ WebSocket.listen (websocketURL path) decodeReplyFromServer
-    , Time.every Time.second MsgTick
     ]
         |> Sub.batch
 
 
 
 -- DECODERS
-
-
-
 
 
 decoderGame : Decoder Game
@@ -257,23 +192,20 @@ decoderGame =
         |> required "order" D.int
         |> optional "result" D.string ""
         |> required "time" D.string
-
         |> optional "win1" (D.maybe D.float) Nothing
         |> optional "win2" (D.maybe D.float) Nothing
         |> optional "draw1" (D.maybe D.float) Nothing
         |> optional "draw2" (D.maybe D.float) Nothing
         |> optional "lose1" (D.maybe D.float) Nothing
         |> optional "lose2" (D.maybe D.float) Nothing
-
         |> hardcoded True
         |> hardcoded False
         |> hardcoded False
 
 
-
 decoderMaybeFloat : Decoder (Maybe (Maybe Float))
 decoderMaybeFloat =
-  (D.maybe (D.maybe D.float))
+    (D.maybe (D.maybe D.float))
 
 
 decoderGameCahnges : Decoder GameCahnges
@@ -284,7 +216,6 @@ decoderGameCahnges =
         |> optional "order" (D.maybe D.int) Nothing
         |> optional "time" (D.maybe D.string) Nothing
         |> optional "result" (D.maybe D.string) Nothing
-
         |> optional "win1" decoderMaybeFloat Nothing
         |> optional "win2" decoderMaybeFloat Nothing
         |> optional "draw1" decoderMaybeFloat Nothing
@@ -295,11 +226,12 @@ decoderGameCahnges =
 
 decoderReplyFromServer : Decoder ReplyFromServer
 decoderReplyFromServer =
-    decode ReplyFromServer
+    decode
+        ReplyFromServer
         |> optional "inplay" (D.list decoderGame) []
         |> optional "outplay" (D.list D.int) []
         |> optional "game_changes" (D.list decoderGameCahnges) []
-        |> optional "request_id" (D.list D.int) []
+        |> required "hash_code" D.string
 
 
 decodeReplyFromServer : String -> Msg
@@ -314,14 +246,6 @@ decodeReplyFromServer str =
 
 
 -- ENCODE
-
-
-encodeReplyToServer : ReplyToServer -> E.Value
-encodeReplyToServer x =
-    object
-        [ ( "games", E.list (List.map encodeGame x.games) )
-        , ( "request_id", E.list (List.map E.int x.id) )
-        ]
 
 
 encodeGame : Game -> E.Value
@@ -339,14 +263,14 @@ encodeGame x =
                     (\( k, v ) ->
                         v |> Maybe.map (\v -> ( k, E.float v ))
                     )
-
     in
         [ ( "event_id", E.int x.eventID )
         , ( "page", E.int x.page )
         , ( "order", E.int x.order )
         , ( "time", E.string x.time )
         , ( "result", E.string x.result )
-        ] ++ encodedOdds
+        ]
+            ++ encodedOdds
             |> object
 
 
