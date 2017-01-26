@@ -8,12 +8,13 @@ module Football
         , view
         )
 
+
 import Debug
 import WebSocket
 import Dict exposing (Dict)
 import Set exposing (Set)
-import Random
-import Time
+import Navigation exposing (Location)
+
 import Json.Decode as D exposing (Decoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
 import Json.Encode as E exposing (object)
@@ -22,6 +23,8 @@ import Html.Attributes as Attr
 import Help.Utils exposing (isJust)
 import Help.Component exposing (spinner_text)
 import Styles as CssA
+import ApiNgType exposing(Event, decoderEvent)
+import CountryCode
 
 
 -- MODEL
@@ -30,8 +33,7 @@ import Styles as CssA
 type Model
     = Model
         { games : List Game
-        , path :
-            { host : String, protocol : String }
+        , location :Location
         }
 
 
@@ -40,6 +42,7 @@ type alias Game =
     , marketID : Int
     , home : String
     , away : String
+    , event : Event
     , page : Int
     , order : Int
     , result : String
@@ -88,9 +91,9 @@ type alias ReplyFromServer =
     }
 
 
-init : { host : String, protocol : String } -> ( Model, Cmd Msg )
-init path =
-    Model { games = [], path = path } ! []
+init : Location -> ( Model, Cmd Msg )
+init location =
+    Model { games = [], location = location } ! []
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -102,7 +105,7 @@ update msg (Model m) =
                     updateGamesList replyFromServer m.games
 
                 answer =
-                    WebSocket.send (websocketURL m.path) replyFromServer.hashCode
+                    WebSocket.send (websocketURL m.location) replyFromServer.hashCode
             in
                 Model { m | games = games } ! [ answer ]
 
@@ -171,8 +174,8 @@ websocketURL path =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions (Model { path }) =
-    [ WebSocket.listen (websocketURL path) decodeReplyFromServer
+subscriptions (Model { location }) =
+    [ WebSocket.listen (websocketURL location) decodeReplyFromServer
     ]
         |> Sub.batch
 
@@ -188,6 +191,7 @@ decoderGame =
         |> required "market_id" D.int
         |> required "home" D.string
         |> required "away" D.string
+        |> required "event" decoderEvent
         |> required "page" D.int
         |> required "order" D.int
         |> optional "result" D.string ""
@@ -278,8 +282,8 @@ encodeGame x =
 -- VIEW
 
 
-viewGame : (Int -> String) -> Game -> Html a
-viewGame getCountryByEventID x =
+viewGame : Game -> Html a
+viewGame x =
     let
         jello_2s_attrs f =
             if f then
@@ -300,7 +304,8 @@ viewGame getCountryByEventID x =
             td [] [ Html.text <| Maybe.withDefault "" <| Maybe.map toString y ]
 
         countryStr =
-            getCountryByEventID x.eventID
+            CountryCode.countryName x.event.countryCode
+              |> Maybe.withDefault x.event.countryCode
     in
         [ td [] [ Html.text <| (toString (x.page + 1)) ++ "." ++ (toString (x.order + 1)) ]
         , td [] [ Html.text countryStr ]
@@ -324,7 +329,7 @@ viewGamesList getCountryByEventID games =
         trs =
             games
                 |> List.sortBy (\{ page, order } -> ( page, order ))
-                |> List.map (viewGame getCountryByEventID)
+                |> List.map viewGame
 
         thead =
             [ "п/п"

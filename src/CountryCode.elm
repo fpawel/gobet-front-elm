@@ -1,4 +1,4 @@
-module CountryCode exposing (toCountryName)
+module CountryCode exposing (countryName)
 
 import Dict exposing (Dict)
 
@@ -149,7 +149,9 @@ codes =
   ] |> Dict.fromList
 
 
-toCountryName : String -> Maybe String
-toCountryName k =
+-- countryName : получить имя страны по её ISO-2 коду
+
+countryName : String -> Maybe String
+countryName k =
   Dict.get k codes
 

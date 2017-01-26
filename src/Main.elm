@@ -1,15 +1,18 @@
 port module Main exposing (..)
 
-import Football exposing (..)
-import Html exposing (Html, Attribute, button, ul, li, h1, h3, span, div, nav, programWithFlags)
+
+import Html exposing (Html, Attribute, button, ul, li, h1, h3, span, div, nav)
 import Html.Attributes exposing (class, href, style, attribute)
-import Html.Events exposing (onClick)
+import Navigation
+
 import Help.Component exposing (mainMenuItem)
+import Football exposing (..)
 
 
-main : Program AppInit Model Msg
+
+main : Program Never Model Msg
 main =
-    programWithFlags
+    Navigation.program UrlChange
         { init = init
         , view = view
         , update = update
@@ -23,6 +26,7 @@ main =
 
 type Msg
     = MsgFootball Football.Msg
+    | UrlChange Navigation.Location
 
 
 type alias Model =
@@ -30,13 +34,9 @@ type alias Model =
     }
 
 
-type alias AppInit =
-    { location : { protocol : String, host : String }
-    }
 
-
-init : AppInit -> ( Model, Cmd Msg )
-init { location } =
+init : Navigation.Location -> ( Model, Cmd Msg )
+init location  =
     let
         ( mfb, cmd ) =
             Football.init location
@@ -51,6 +51,8 @@ init { location } =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
+        UrlChange url ->
+          m ! []
         MsgFootball msgfb ->
             let
                 ( mfb, cmdfb ) =
