@@ -8,13 +8,11 @@ module Football
         , view
         )
 
-
 import Debug
 import WebSocket
 import Dict exposing (Dict)
 import Set exposing (Set)
 import Navigation exposing (Location)
-
 import Json.Decode as D exposing (Decoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
 import Json.Encode as E exposing (object)
@@ -23,8 +21,7 @@ import Html.Attributes as Attr
 import Help.Utils exposing (isJust)
 import Help.Component exposing (spinner_text)
 import Styles as CssA
-import ApiNgType exposing(Event, decoderEvent)
-import CountryCode
+import ApiNgTypes exposing (Event, decoderEvent)
 
 
 -- MODEL
@@ -33,7 +30,7 @@ import CountryCode
 type Model
     = Model
         { games : List Game
-        , location :Location
+        , location : Location
         }
 
 
@@ -82,7 +79,6 @@ type Msg
     = MsgReplyFromServer ReplyFromServer
 
 
-
 type alias ReplyFromServer =
     { inplay : List Game
     , outplay : List Int
@@ -91,9 +87,9 @@ type alias ReplyFromServer =
     }
 
 
-init : Location -> ( Model, Cmd Msg )
+init : Location -> Model
 init location =
-    Model { games = [], location = location } ! []
+    Model { games = [], location = location }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -302,13 +298,9 @@ viewGame x =
 
         odd y =
             td [] [ Html.text <| Maybe.withDefault "" <| Maybe.map toString y ]
-
-        countryStr =
-            CountryCode.countryName x.event.countryCode
-              |> Maybe.withDefault x.event.countryCode
     in
         [ td [] [ Html.text <| (toString (x.page + 1)) ++ "." ++ (toString (x.order + 1)) ]
-        , td [] [ Html.text countryStr ]
+        , td [] [ Html.text x.event.country ]
         , td [ Attr.class "home-team" ] [ Html.text x.home ]
         , td_ x.uresult x.result
         , td [ Attr.class "away-team" ] [ Html.text x.away ]
@@ -323,8 +315,8 @@ viewGame x =
             |> tr (bounceInUp_2s_attrs x.inplay)
 
 
-viewGamesList : (Int -> String) -> List Game -> Html a
-viewGamesList getCountryByEventID games =
+viewGamesList : List Game -> Html a
+viewGamesList games =
     let
         trs =
             games
@@ -356,11 +348,11 @@ viewGamesList getCountryByEventID games =
             ]
 
 
-view : (Int -> String) -> Model -> Html a
-view getCountryByEventID (Model { games }) =
+view : Model -> Html a
+view (Model { games }) =
     case games of
         [] ->
             spinner_text "Подготовка данных..."
 
         _ ->
-            viewGamesList getCountryByEventID games
+            viewGamesList games

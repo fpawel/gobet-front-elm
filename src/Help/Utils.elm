@@ -1,6 +1,9 @@
 module Help.Utils exposing (..)
 
+import Date exposing (Month(..))
 
+
+compareInvert : comparable -> comparable -> Order
 compareInvert n1 n2 =
     case compare n1 n2 of
         LT ->
@@ -85,3 +88,43 @@ list_parts_n n xs =
                 a + 1
     in
         list_window c xs
+
+
+monthNumber : Month -> number
+monthNumber x =
+    case x of
+        Jan ->
+            1
+
+        Feb ->
+            2
+
+        Mar ->
+            3
+
+        Apr ->
+            4
+
+        May ->
+            5
+
+        Jun ->
+            6
+
+        Jul ->
+            7
+
+        Aug ->
+            8
+
+        Sep ->
+            9
+
+        Oct ->
+            10
+
+        Nov ->
+            11
+
+        Dec ->
+            12

@@ -1,7 +1,7 @@
 {
     "version": "1.0.0",
-    "summary": "helpful summary of your project, less than 80 characters",
-    "repository": "https://github.com/user/project.git",
+    "summary": "web face for https://github.com/fpawel/gobet",
+    "repository": "https://github.com/fpawel/gobet-front.git",
     "license": "BSD3",
     "source-directories": [
         "src",
@@ -26,10 +26,8 @@
     },
     "sublime-build": {
         "output": {
-            "components": {
-                "dir": "../gobet/static/scripts/",
-                "ext": "js"
-            }
-        }
+            "path": "../gobet/static/scripts/main.js"
+        },
+        "main": "src/Main.elm"
     }
 }

@@ -1,8 +1,7 @@
-module EventType exposing (Model, Msg, Config, update, init, getEventTypeID, menuItem, view)
+module Sport exposing (Model, Msg, update, init, menuItem, view, eventType)
 
 import Dict exposing (Dict)
 import Regex exposing (..)
-import String
 import Html
     exposing
         ( Html
@@ -23,20 +22,26 @@ import Html
         , table
         , text
         )
+import ApiNgTypes
 import Html.Attributes exposing (class, style, colspan, href)
 import Html.Events exposing (onClick)
 import Help.Component exposing (mainMenuItem, spinner_text)
-import Help.Utils exposing (compareInvert)
+import Help.Utils exposing (compareInvert, monthNumber)
+import Date
 
 
 -- MODEL
 
 
 type Model
-    = Model
-        { id : Int
-        , countryFilter : CountryFilter
-        }
+    = Model Context
+
+
+type alias Context =
+    { eventType : ApiNgTypes.EventType
+    , events : List ApiNgTypes.Event
+    , countryFilter : CountryFilter
+    }
 
 
 type alias CountryFilter =
@@ -47,14 +52,14 @@ type Msg
     = ApplyCountryFilter CountryFilter
 
 
-type alias Config msg =
-    { toMsg : Msg -> msg
-    }
+init : ApiNgTypes.EventType -> Model
+init eventType =
+    Model <| Context eventType [] Nothing
 
 
-init : Int -> Model
-init id =
-    Model { id = id, countryFilter = Nothing }
+eventType : Model -> ApiNgTypes.EventType
+eventType (Model { eventType }) =
+    eventType
 
 
 
@@ -84,14 +89,17 @@ viewEventName s =
             [ td [ colspan 2 ] [ text s ] ]
 
 
-eventRow : ApiNg.Model -> Model -> ApiNg.Event -> Html msg
-eventRow aping (Model { id, countryFilter }) x =
+eventRow : Maybe String -> ApiNgTypes.Event -> Html msg
+eventRow countryFilter event =
     let
-        d =
-            x.openDate
+        day =
+            Date.day event.openDate
 
-        date =
-            (toString d.day ++ "/" ++ toString d.month ++ "/" ++ toString d.year)
+        month =
+            Date.month event.openDate
+
+        year =
+            Date.year event.openDate
 
         cellCountry =
             case countryFilter of
@@ -99,16 +107,16 @@ eventRow aping (Model { id, countryFilter }) x =
                     td [] []
 
                 _ ->
-                    td [] [ text <| Maybe.withDefault "" <| ApiNg.tryGetCountryName aping id x.id ]
+                    td [] [ text event.country ]
 
         xs1 =
-            [ td [] [ text <| toString d.day ]
-            , td [] [ text <| toString d.month ]
-            , td [] [ text <| toString d.year ]
+            [ td [] [ text <| toString day ]
+            , td [] [ text <| toString month ]
+            , td [] [ text <| toString year ]
             , cellCountry
             ]
     in
-        tr [] (xs1 ++ viewEventName x.name)
+        tr [] (xs1 ++ viewEventName event.name)
 
 
 countryFilterToString : Maybe String -> String
@@ -130,42 +138,35 @@ linkCountryFilter countryFilter =
         []
         [ Html.a
             [ href "#"
-            , onClick (MsgSetCountryFilter countryFilter)
+            , onClick (ApplyCountryFilter countryFilter)
             ]
             [ text <| countryFilterToString countryFilter ]
         ]
 
 
-getCountries : ApiNg.Model -> Model -> List String
-getCountries aping (Model { id }) =
-    ApiNg.getEventType aping id
-        |> Maybe.map .events
-        |> Maybe.withDefault []
-        |> List.foldr
-            (\x acc ->
-                let
-                    cn =
-                        ApiNg.tryGetCountryName aping id x.id
-                            |> Maybe.withDefault ""
-
-                    n =
-                        Dict.get cn acc
-                            |> Maybe.withDefault 0
-                in
-                    Dict.insert cn (n + 1) acc
-            )
-            Dict.empty
-        |> Dict.toList
-        |> List.sortWith
+getCountries : List ApiNgTypes.Event -> List String
+getCountries =
+    List.foldr
+        (\event acc ->
+            let
+                n =
+                    Dict.get event.country acc
+                        |> Maybe.withDefault 0
+            in
+                Dict.insert event.country (n + 1) acc
+        )
+        Dict.empty
+        >> Dict.toList
+        >> List.sortWith
             (\( _, n1 ) ( _, n2 ) -> compareInvert n1 n2)
-        |> List.map Tuple.first
+        >> List.map Tuple.first
 
 
-menuItem : Config msg -> Model -> Html msg
-menuItem config ((Model { id, countryFilter }) as m) =
+menuItem : (Msg -> msg) -> Model -> Html msg
+menuItem toMsg ((Model { events, countryFilter }) as m) =
     let
         countries =
-            getCountries config.aping m
+            getCountries events
     in
         if List.length countries < 2 then
             li [] []
@@ -173,15 +174,18 @@ menuItem config ((Model { id, countryFilter }) as m) =
             countries
                 |> List.map Just
                 |> (::) Nothing
-                |> List.map (linkCountryFilter >> Html.map config.toMsg)
+                |> List.map (linkCountryFilter >> Html.map toMsg)
                 |> mainMenuItem (countryFilterToString countryFilter)
 
 
-view : ApiNg.Model -> Model -> Html msg
-view aping (Model m) =
+view : Model -> Html msg
+view (Model model) =
     let
+        { eventType, events, countryFilter } =
+            model
+
         hcountry =
-            case m.countryFilter of
+            case countryFilter of
                 Just _ ->
                     th [] []
 
@@ -197,44 +201,26 @@ view aping (Model m) =
                 , th [ colspan 2 ] [ text "Событие" ]
                 ]
 
-        eventType =
-            ApiNg.getEventType aping m.id
-
-        events =
-            eventType
-                |> Maybe.map .events
-                |> Maybe.withDefault []
+        filteredEvents =
+            events
                 |> List.filter
-                    (\x ->
-                        case m.countryFilter of
+                    (\event ->
+                        case countryFilter of
                             Nothing ->
                                 True
 
                             Just cf ->
-                                (ApiNg.tryGetCountryName aping m.id x.id
-                                    |> Maybe.withDefault ""
-                                )
-                                    == cf
+                                event.country == cf
                     )
                 |> List.sortBy
                     (\{ openDate } ->
-                        ( openDate.year
-                        , openDate.month
-                        , openDate.day
+                        ( Date.year openDate
+                        , monthNumber <| Date.month <| openDate
+                        , Date.day openDate
                         )
                     )
-
-        rws =
-            events
-                |> List.map (eventRow aping <| Model m)
-
-        marketCount =
-            eventType |> Maybe.map (.marketCount >> toString) |> Maybe.withDefault ""
-
-        eventCount =
-            List.length events |> toString
     in
-        if List.isEmpty rws then
+        if List.isEmpty filteredEvents then
             spinner_text "Подготовка данных..."
         else
             div
@@ -242,12 +228,12 @@ view aping (Model m) =
                 [ table
                     [ class "table table-condensed" ]
                     [ thead [] [ hr ]
-                    , tbody [] rws
+                    , tbody [] <| List.map (eventRow countryFilter) filteredEvents
                     ]
                 , Html.p []
-                    [ h3 [] [ text marketCount ]
+                    [ h3 [] [ text <| toString eventType.market_count ]
                     , text "рынков"
-                    , h3 [] [ text eventCount ]
+                    , h3 [] [ text <| toString <| List.length filteredEvents ]
                     , text "событий"
                     ]
                 ]
