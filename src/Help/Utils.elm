@@ -40,7 +40,6 @@ websocketURL { protocol, host } =
             ++ (String.dropLeft 4 protocol)
             ++ "//"
             ++ host
-            ++ "/ws"
 
 
 list_window1 : List (List a) -> Int -> List a -> List (List a)

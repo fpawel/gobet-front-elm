@@ -101,7 +101,7 @@ update msg (Model m) =
                     updateGamesList replyFromServer m.games
 
                 answer =
-                    WebSocket.send (websocketURL m.location) replyFromServer.hashCode
+                    WebSocket.send (websocketURL m) replyFromServer.hashCode
             in
                 Model { m | games = games } ! [ answer ]
 
@@ -160,9 +160,9 @@ updateGamesList { inplay, outplay, changes } games =
         inplay ++ play
 
 
-websocketURL : { a | host : String, protocol : String } -> String
-websocketURL path =
-    Help.Utils.websocketURL path ++ "/football"
+websocketURL : { a | location : Navigation.Location } -> String
+websocketURL { location } =
+    Help.Utils.websocketURL location ++ "/football"
 
 
 
@@ -170,8 +170,8 @@ websocketURL path =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions (Model { location }) =
-    [ WebSocket.listen (websocketURL location) decodeReplyFromServer
+subscriptions (Model m) =
+    [ WebSocket.listen (websocketURL m) decodeReplyFromServer
     ]
         |> Sub.batch
 
