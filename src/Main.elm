@@ -34,7 +34,12 @@ type alias Model =
 
 init : List EventType -> Navigation.Location -> ( Model, Cmd Msg )
 init eventTypes location =
-    Model (Content.init location eventTypes Routing.Football) eventTypes location ! []
+    let
+        ( content, cmd ) =
+            Content.init location eventTypes Routing.Football
+
+    in
+        Model content eventTypes location ! [cmd]
 
 
 
@@ -52,21 +57,22 @@ update msg model =
                 new_route =
                     parseHash Routing.parser url
                         |> Maybe.withDefault current_route
-
-                upd_model =
-                    if new_route == current_route then
-                        model
-                    else
-                        { model | content = Content.init model.location model.eventTypes new_route }
             in
-                upd_model ! []
+                if new_route == current_route then
+                    model ! []
+                else
+                    Content.init model.location model.eventTypes new_route
+                      |> updateContent model
+
 
         msg ->
-            let
-                ( updated_content, cmd ) =
-                    Content.update msg model.content
-            in
-                { model | content = updated_content } ! [ cmd ]
+            Content.update msg model.content
+              |> updateContent model
+
+
+updateContent : Model -> ( Content.Model, Cmd Msg ) -> ( Model, Cmd Msg )
+updateContent  model (content, cmd) =
+  { model | content = content } ! [ cmd ]
 
 
 

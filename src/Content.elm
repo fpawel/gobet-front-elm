@@ -15,16 +15,22 @@ type Model
     | Sport MSport.Model
 
 
-init : Navigation.Location -> List EventType -> Route -> Model
+init : Navigation.Location -> List EventType -> Route -> (Model, Cmd Msg)
 init location eventTypes route =
     case route of
         Routing.Football ->
-            Football <| MFootball.init location
+            Football ( MFootball.init location) ! []
 
         Routing.Sport eventType_id ->
             case List.filter (\{ id } -> id == eventType_id) eventTypes of
                 eventType :: _ ->
-                    Sport <| MSport.init eventType
+                    let
+                        (model_sport, cmd_sport) =
+                          MSport.init location eventType
+                    in
+                      Sport model_sport ! [Cmd.map Msg.Sport cmd_sport]
+
+
 
                 _ ->
                     Debug.crash <| "unknown event type id " ++ toString eventType_id

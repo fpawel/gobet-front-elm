@@ -1,7 +1,9 @@
 module Sport exposing (Model, Msg, update, init, menuItem, view, eventType)
 
+import Http
 import Dict exposing (Dict)
 import Regex exposing (..)
+import Json.Decode
 import Html
     exposing
         ( Html
@@ -22,7 +24,8 @@ import Html
         , table
         , text
         )
-import ApiNgTypes
+import Navigation exposing (Location)
+import ApiNgTypes exposing (Event, EventType, decoderEvent)
 import Html.Attributes exposing (class, style, colspan, href)
 import Html.Events exposing (onClick)
 import Help.Component exposing (mainMenuItem, spinner_text)
@@ -38,9 +41,11 @@ type Model
 
 
 type alias Context =
-    { eventType : ApiNgTypes.EventType
-    , events : List ApiNgTypes.Event
+    { location : Location
+    , eventType : EventType
+    , events : List Event
     , countryFilter : CountryFilter
+    , error : Maybe String
     }
 
 
@@ -50,11 +55,43 @@ type alias CountryFilter =
 
 type Msg
     = ApplyCountryFilter CountryFilter
+    | NewEvents (Result Http.Error (List Event ) )
 
 
-init : ApiNgTypes.EventType -> Model
-init eventType =
-    Model <| Context eventType [] Nothing
+init : Location -> EventType -> (Model,Cmd Msg)
+init location eventType =
+  let
+    request = httpRequestEvents location eventType
+    context =
+      { location = location
+      , eventType = eventType
+      , events = []
+      , countryFilter = Nothing
+      , error = Nothing
+      }
+
+  in
+
+    Model context ! [request ]
+
+
+httpRequestEvents
+    : Location
+    -> EventType
+    -> Cmd Msg
+httpRequestEvents location eventType =
+  let
+    eventsURL =
+      location.protocol ++ "//" ++ location.host ++ "/events/" ++ toString eventType.id
+
+    decoder =
+
+      Json.Decode.list decoderEvent
+        |> Json.Decode.field "result"
+
+  in
+      Http.get eventsURL decoder
+        |> Http.send  NewEvents
 
 
 eventType : Model -> ApiNgTypes.EventType
@@ -71,6 +108,12 @@ update msg (Model m) =
     case msg of
         ApplyCountryFilter cf ->
             Model { m | countryFilter = cf } ! []
+        NewEvents (Ok events) ->
+          Model {m | events = events} ! []
+
+        NewEvents (Err error) ->
+          Model {m | error = Just <| toString error}
+            ! [ httpRequestEvents m.location m.eventType ]
 
 
 
@@ -180,6 +223,15 @@ menuItem toMsg ((Model { events, countryFilter }) as m) =
 
 view : Model -> Html msg
 view (Model model) =
+  case model.error of
+    Nothing -> view1 (Model model)
+    Just error ->
+      div[]
+        [  Html.p [] [ text error ]
+        ]
+
+view1 : Model -> Html msg
+view1 (Model model) =
     let
         { eventType, events, countryFilter } =
             model
