@@ -35,7 +35,12 @@ getCountryNameByCode =
 
 decoderCountryName : Decoder String
 decoderCountryName =
-    D.map (CountryCode.countryName >> Maybe.withDefault "") D.string
+    D.map
+        (\x ->
+            CountryCode.countryName x
+                |> Maybe.withDefault x
+        )
+        D.string
 
 
 decoderDate : Decoder Date.Date
