@@ -1,4 +1,13 @@
-module Sport exposing (Model, Msg, update, init, menuItem, view, eventType)
+module Sport
+    exposing
+        ( Model
+        , Msg
+        , update
+        , init
+        , viewMenuCountries
+        , view
+        , eventType
+        )
 
 import Http
 import Dict exposing (Dict)
@@ -55,43 +64,41 @@ type alias CountryFilter =
 
 type Msg
     = ApplyCountryFilter CountryFilter
-    | NewEvents (Result Http.Error (List Event ) )
+    | NewEvents (Result Http.Error (List Event))
 
 
-init : Location -> EventType -> (Model,Cmd Msg)
+init : Location -> EventType -> ( Model, Cmd Msg )
 init location eventType =
-  let
-    request = httpRequestEvents location eventType
-    context =
-      { location = location
-      , eventType = eventType
-      , events = []
-      , countryFilter = Nothing
-      , error = Nothing
-      }
+    let
+        request =
+            httpRequestEvents location eventType
 
-  in
+        context =
+            { location = location
+            , eventType = eventType
+            , events = []
+            , countryFilter = Nothing
+            , error = Nothing
+            }
+    in
+        Model context ! [ request ]
 
-    Model context ! [request ]
 
-
-httpRequestEvents
-    : Location
+httpRequestEvents :
+    Location
     -> EventType
     -> Cmd Msg
 httpRequestEvents location eventType =
-  let
-    eventsURL =
-      location.protocol ++ "//" ++ location.host ++ "/events/" ++ toString eventType.id
+    let
+        eventsURL =
+            location.protocol ++ "//" ++ location.host ++ "/events/" ++ toString eventType.id
 
-    decoder =
-
-      Json.Decode.list decoderEvent
-        |> Json.Decode.field "result"
-
-  in
-      Http.get eventsURL decoder
-        |> Http.send  NewEvents
+        decoder =
+            Json.Decode.list decoderEvent
+                |> Json.Decode.field "result"
+    in
+        Http.get eventsURL decoder
+            |> Http.send NewEvents
 
 
 eventType : Model -> ApiNgTypes.EventType
@@ -108,12 +115,13 @@ update msg (Model m) =
     case msg of
         ApplyCountryFilter cf ->
             Model { m | countryFilter = cf } ! []
+
         NewEvents (Ok events) ->
-          Model {m | events = events} ! []
+            Model { m | events = events } ! []
 
         NewEvents (Err error) ->
-          Model {m | error = Just <| toString error}
-            ! [ httpRequestEvents m.location m.eventType ]
+            Model { m | error = Just <| toString error }
+                ! [ httpRequestEvents m.location m.eventType ]
 
 
 
@@ -205,8 +213,8 @@ getCountries =
         >> List.map Tuple.first
 
 
-menuItem : (Msg -> msg) -> Model -> Html msg
-menuItem toMsg ((Model { events, countryFilter }) as m) =
+viewMenuCountries : (Msg -> msg) -> Model -> Html msg
+viewMenuCountries toMsg ((Model { events, countryFilter }) as m) =
     let
         countries =
             getCountries events
@@ -223,12 +231,15 @@ menuItem toMsg ((Model { events, countryFilter }) as m) =
 
 view : Model -> Html msg
 view (Model model) =
-  case model.error of
-    Nothing -> view1 (Model model)
-    Just error ->
-      div[]
-        [  Html.p [] [ text error ]
-        ]
+    case model.error of
+        Nothing ->
+            view1 (Model model)
+
+        Just error ->
+            div []
+                [ Html.p [] [ text error ]
+                ]
+
 
 view1 : Model -> Html msg
 view1 (Model model) =

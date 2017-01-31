@@ -1,6 +1,6 @@
 module Routing exposing (..)
 
-import UrlParser exposing (Parser, map, (</>), s, int, string, parseHash, oneOf)
+import UrlParser exposing (Parser, map, (<?>), (</>), s, int, string, parseHash, oneOf)
 import Navigation exposing (Location)
 
 
