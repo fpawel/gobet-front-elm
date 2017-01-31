@@ -4,11 +4,12 @@ import Html exposing (Html, Attribute, button, ul, li, h1, h3, span, div, nav)
 import Html.Attributes exposing (class, href, style, attribute)
 import Navigation
 import UrlParser exposing ((</>), parseHash)
-import ApiNgTypes exposing (EventType)
+import Aping exposing (Event)
 import Help.Component exposing (mainMenuItem)
 import Routing
 import Content
 import Msg exposing (Msg)
+import Navbar
 
 
 main : Program (List EventType) Model Msg
@@ -37,9 +38,8 @@ init eventTypes location =
     let
         ( content, cmd ) =
             Content.init location eventTypes Routing.Football
-
     in
-        Model content eventTypes location ! [cmd]
+        Model content eventTypes location ! [ cmd ]
 
 
 
@@ -62,17 +62,16 @@ update msg model =
                     model ! []
                 else
                     Content.init model.location model.eventTypes new_route
-                      |> updateContent model
-
+                        |> updateContent model
 
         msg ->
             Content.update msg model.content
-              |> updateContent model
+                |> updateContent model
 
 
 updateContent : Model -> ( Content.Model, Cmd Msg ) -> ( Model, Cmd Msg )
-updateContent  model (content, cmd) =
-  { model | content = content } ! [ cmd ]
+updateContent model ( content, cmd ) =
+    { model | content = content } ! [ cmd ]
 
 
 
@@ -87,6 +86,28 @@ subscriptions { content } =
 
 -- VIEW
 -- "☰"
+
+
+navbarConfig : Model -> Navbar.Config
+navbarConfig m =
+    { sports = m.eventTypes
+    , sport =
+        case m.content of
+            Content.Football _ ->
+                { id = 1, name = "Футбол сегодня", market_count = 0 }
+
+            Content.Sport m ->
+                Sport.eventType m
+    , menu =
+        case m.content of
+            Content.Football _ ->
+                []
+
+            Content.Sport m ->
+                Sport.eventType m
+
+            List { name = String, items = List { name = String, path = String } }
+    }
 
 
 dropNavEventTypes : Model -> List (Html Msg)
@@ -137,7 +158,8 @@ navbar m =
                 [ class "collapse navbar-collapse" ]
                 [ ul
                     [ class "nav navbar-nav" ]
-                    [ mainMenuItem "Спорт" (dropNavEventTypes m) ]
+                    [ mainMenuItem (Content.what m.content) (dropNavEventTypes m)
+                    ]
                 ]
             ]
         ]

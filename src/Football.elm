@@ -21,7 +21,8 @@ import Html.Attributes as Attr
 import Help.Utils exposing (isJust)
 import Help.Component exposing (spinner_text)
 import Styles as CssA
-import ApiNgTypes exposing (Event, decoderEvent)
+import Aping exposing (Event)
+import Aping.Decoder
 
 
 -- MODEL
@@ -187,7 +188,7 @@ decoderGame =
         |> required "market_id" D.int
         |> required "home" D.string
         |> required "away" D.string
-        |> required "event" decoderEvent
+        |> required "event" Aping.Decoder.event
         |> required "page" D.int
         |> required "order" D.int
         |> optional "result" D.string ""

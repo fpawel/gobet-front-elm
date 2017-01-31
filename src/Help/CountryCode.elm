@@ -1,4 +1,4 @@
-module CountryCode exposing (countryName)
+module Help.CountryCode exposing (countryName)
 
 import Dict exposing (Dict)
 
