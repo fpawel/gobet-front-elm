@@ -1,23 +1,13 @@
 port module Main exposing (..)
 
-import Html exposing (Html, Attribute, button, ul, li, h1, h3, span, div, nav)
-
-
--- import Html.Attributes exposing (class, href, style, attribute)
-
+import Html exposing (Html)
 import Navigation
 import UrlParser exposing ((</>), parseHash)
 import Aping exposing (Event)
-
-
--- import Help.Component exposing (mainMenuItem)
-
 import Routing
 import Content
 import Msg exposing (Msg)
-
-
---import Navbar
+import View.Container
 
 
 main : Program (List Aping.Sport) Model Msg
@@ -106,4 +96,4 @@ subscriptions { content } =
 
 view : Model -> Html Msg
 view model =
-    Content.view model.content
+    View.Container.view [] (Content.view model.sports model.content)

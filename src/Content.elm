@@ -2,7 +2,7 @@ module Content exposing (..)
 
 import Html exposing (Html)
 import Debug
-import Navigation
+import Navigation exposing (Location)
 
 
 --import Football as MFootball
@@ -11,15 +11,31 @@ import Sport as MSport
 import Msg exposing (Msg)
 import Routing exposing (Route)
 import Aping
+import View.Sports
 
 
 type Model
     = Sport MSport.Model
 
 
+initSport :
+    Location
+    -> Aping.Sport
+    -> ( Model, Cmd Msg )
+initSport location sport =
+    let
+        ( model_sport, cmd_sport ) =
+            MSport.init
+                { location = location
+                , sport = sport
+                }
+    in
+        Sport model_sport ! [ Cmd.map Msg.Sport cmd_sport ]
+
+
 init :
     { a
-        | location : Navigation.Location
+        | location : Location
         , sports : List Aping.Sport
     }
     -> Route
@@ -27,20 +43,14 @@ init :
 init { location, sports } route =
     case route of
         Routing.Sport sportID ->
-            case List.filter (\{ id } -> id == sportID) sports of
-                sport :: _ ->
-                    let
-                        ( model_sport, cmd_sport ) =
-                            MSport.init
-                                { location = location
-                                , sport = sport
-                                , sports = sports
-                                }
-                    in
-                        Sport model_sport ! [ Cmd.map Msg.Sport cmd_sport ]
-
-                _ ->
-                    Debug.crash <| "unknown sport id " ++ toString sportID
+            let
+                ( model_sport, cmd_sport ) =
+                    MSport.init
+                        { location = location
+                        , sport = Aping.getSportByID sportID sports
+                        }
+            in
+                Sport model_sport ! [ Cmd.map Msg.Sport cmd_sport ]
 
 
 route : Model -> Route
@@ -64,12 +74,17 @@ update msg model =
             Debug.crash <| "wrong content message: " ++ toString x
 
 
-view : Model -> Html Msg
-view model =
+view :
+    List Aping.Sport
+    -> Model
+    -> List (Html Msg)
+view sports model =
     case model of
-        Sport model_sport ->
-            MSport.view model_sport
+        Sport ({ sport } as m) ->
+            [ View.Sports.view { sports = sports, sportID = sport.id }
+            , MSport.view m
                 |> Html.map Msg.Sport
+            ]
 
 
 
@@ -78,13 +93,4 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case model of
-        Sport m ->
-            Sub.map Msg.Sport <| MSport.subscriptions m
-
-
-what : Model -> String
-what x =
-    case x of
-        Sport { sport } ->
-            sport.name
+    Sub.none

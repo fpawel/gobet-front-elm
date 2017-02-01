@@ -1,4 +1,4 @@
-module Aping exposing (Sport, Event)
+module Aping exposing (Sport, Event, getSportByID)
 
 import Date
 
@@ -18,3 +18,13 @@ type alias Event =
     , timezone : String
     , venue : String
     }
+
+
+getSportByID : Int -> List Sport -> Sport
+getSportByID sportID sports =
+    case List.filter (\{ id } -> id == sportID) sports of
+        sport :: _ ->
+            sport
+
+        _ ->
+            Debug.crash <| "unknown sport id " ++ toString sportID

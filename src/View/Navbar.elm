@@ -1,4 +1,4 @@
-module Navbar exposing (Config, view, dropNav)
+module View.Navbar exposing (..)
 
 import Html exposing (Html, Attribute, button, ul, li, h1, h3, span, div, nav)
 import Html.Attributes exposing (class, href, style, attribute)
@@ -8,8 +8,8 @@ type alias Config =
     List { name : String, items : List { name : String, route : String } }
 
 
-navbarHeader : Html a
-navbarHeader =
+header : Html a
+header =
     div
         [ class "navbar-header" ]
         [ button
@@ -31,24 +31,19 @@ navbarHeader =
 
 
 view : Config -> Html a
-view menu =
-    let
-        --dropDownSports = dropDown { name = sport.name, items = dropNavSports sports }
-        menu_element =
-            menu
-                |> List.map
-                    (\{ name, items } -> dropDown { name = name, items = dropNav items })
-                |> ul [ class "nav navbar-nav" ]
-    in
-        nav [ class "navbar navbar-default" ]
-            [ div [ class "container-fluid" ]
-                [ navbarHeader
-                , div
-                    [ class "collapse navbar-collapse" ]
-                    [ menu_element
-                    ]
+view config =
+    nav [ class "navbar navbar-default" ]
+        [ div [ class "container-fluid" ]
+            [ header
+            , div
+                [ class "collapse navbar-collapse" ]
+                [ config
+                    |> List.map
+                        (\{ name, items } -> dropDown { name = name, items = dropNav items })
+                    |> ul [ class "nav navbar-nav" ]
                 ]
             ]
+        ]
 
 
 dropNav : List { name : String, route : String } -> List (Html msg)
