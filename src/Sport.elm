@@ -4,17 +4,19 @@ module Sport
         , Msg
         , update
         , init
-        , viewMenuCountries
         , view
+        , subscriptions
         )
 
 import Http
 import Regex exposing (..)
 import Json.Decode
+import Html.Events exposing (onClick)
 import Html
     exposing
         ( Html
         , Attribute
+        , a
         , button
         , ul
         , li
@@ -32,14 +34,24 @@ import Html
         , text
         )
 import Date
+import Dict exposing (Dict)
+
+
+-- import Set exposing (Set)
+
+import Time exposing (Time)
 import Navigation exposing (Location)
 import Aping exposing (Event)
 import Aping.Decoder
 import Aping.Events
-import Html.Attributes exposing (class, style, colspan, href)
-import Html.Events exposing (onClick)
+import Html.Attributes exposing (class, style, attribute, colspan, href, id)
+
+
+--import Html.Events exposing (onClick)
+
 import Help.Component exposing (mainMenuItem, spinner_text)
-import Help.Utils exposing (compareInvert, monthNumber)
+import Help.Utils exposing (compareInvert, day_month_year)
+import Month
 import Navbar
 
 
@@ -51,18 +63,24 @@ type alias Model =
     , sports : List Aping.Sport
     , sport : Aping.Sport
     , events : List Event
-    , countryFilter : CountryFilter
+    , time : Time
+    , day : Day
     , error : Maybe String
     }
 
 
-type alias CountryFilter =
+type alias Country =
     Maybe String
 
 
+type alias Day =
+    ( Int, Int, Int )
+
+
 type Msg
-    = ApplyCountryFilter CountryFilter
-    | NewEvents (Result Http.Error (List Event))
+    = NewEvents (Result Http.Error (List Event))
+    | Tick Time
+    | NewDay Day
 
 
 init :
@@ -71,25 +89,23 @@ init :
     , sport : Aping.Sport
     }
     -> ( Model, Cmd Msg )
-init { location, sport, sports } =
+init ({ location, sport, sports } as xinit) =
     { location = location
     , sport = sport
     , sports = sports
     , events = []
-    , countryFilter = Nothing
+    , day = ( 0, 0, 0 )
     , error = Nothing
+    , time = 0
     }
-        ! [ httpRequestEvents location sport ]
+        ! [ httpRequestEvents xinit ]
 
 
-httpRequestEvents :
-    Location
-    -> Aping.Sport
-    -> Cmd Msg
-httpRequestEvents location eventType =
+httpRequestEvents : { a | location : Location, sport : Aping.Sport } -> Cmd Msg
+httpRequestEvents { location, sport } =
     let
         eventsURL =
-            location.protocol ++ "//" ++ location.host ++ "/events/" ++ toString eventType.id
+            location.protocol ++ "//" ++ location.host ++ "/events/" ++ toString sport.id
 
         decoder =
             Json.Decode.list Aping.Decoder.event
@@ -106,105 +122,34 @@ httpRequestEvents location eventType =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
-        ApplyCountryFilter cf ->
-            { m | countryFilter = cf } ! []
+        NewDay day ->
+            { m | day = day } ! []
+
+        Tick time ->
+            { m | time = time } ! []
 
         NewEvents (Ok events) ->
-            { m | events = events } ! []
+            { m
+                | events = events
+                , day = Aping.Events.defaultDay (today m) events
+            }
+                ! []
 
         NewEvents (Err error) ->
             { m | error = Just <| toString error }
-                ! [ httpRequestEvents m.location m.sport ]
+                ! [ httpRequestEvents m ]
+
+
+today : { a | time : Time } -> Day
+today { time } =
+    day_month_year <| Date.fromTime time
 
 
 
 -- VIEW
 
 
-viewEventName : String -> List (Html msg)
-viewEventName s =
-    case split (AtMost 1) (regex " [v@\\-] ") s of
-        [ s1, s2 ] ->
-            [ td [] [ text s1 ]
-            , td [] [ text s2 ]
-            ]
-
-        _ ->
-            [ td [ colspan 2 ] [ text s ] ]
-
-
-eventRow : Maybe String -> Event -> Html msg
-eventRow countryFilter event =
-    let
-        day =
-            Date.day event.openDate
-
-        month =
-            Date.month event.openDate
-
-        year =
-            Date.year event.openDate
-
-        cellCountry =
-            case countryFilter of
-                Just _ ->
-                    td [] []
-
-                _ ->
-                    td [] [ text event.country ]
-
-        xs1 =
-            [ td [] [ text <| toString day ]
-            , td [] [ text <| toString month ]
-            , td [] [ text <| toString year ]
-            , cellCountry
-            ]
-    in
-        tr [] (xs1 ++ viewEventName event.name)
-
-
-countryFilterToString : Maybe String -> String
-countryFilterToString countryFilter =
-    case countryFilter of
-        Just "" ->
-            "Международные события"
-
-        Just s ->
-            s
-
-        _ ->
-            "Все страны"
-
-
-linkCountryFilter : Maybe String -> Html Msg
-linkCountryFilter countryFilter =
-    li
-        []
-        [ Html.a
-            [ href "#"
-            , onClick (ApplyCountryFilter countryFilter)
-            ]
-            [ text <| countryFilterToString countryFilter ]
-        ]
-
-
-viewMenuCountries : (Msg -> msg) -> Model -> Html msg
-viewMenuCountries toMsg ({ events, countryFilter } as m) =
-    let
-        countries =
-            Aping.Events.countries events
-    in
-        if List.length countries < 2 then
-            li [] []
-        else
-            countries
-                |> List.map Just
-                |> (::) Nothing
-                |> List.map (linkCountryFilter >> Html.map toMsg)
-                |> mainMenuItem (countryFilterToString countryFilter)
-
-
-view : Model -> Html msg
+view : Model -> Html Msg
 view model =
     div
         []
@@ -224,8 +169,22 @@ navbarConfig m =
                 |> List.sortBy (\{ market_count } -> market_count * -1)
                 |> List.map
                     (\x -> { name = x.name, route = "sport/" ++ toString x.id })
+
+        sports =
+            Just { name = m.sport.name, items = dropNavSports }
     in
-        [ { name = m.sport.name, items = dropNavSports } ]
+        [ { name = m.sport.name, items = dropNavSports }
+        ]
+
+
+formatDay1 : Day -> String
+formatDay1 ( day, month, year ) =
+    toString day ++ " " ++ Month.format1 month ++ " " ++ toString year
+
+
+formatDay2 : Day -> String
+formatDay2 ( day, month, year ) =
+    toString day ++ "_" ++ toString month ++ "_" ++ toString year
 
 
 dropNavSports : List Aping.Sport -> List { name : String, route : String }
@@ -251,59 +210,51 @@ view2 model =
                 ]
 
 
-getFilteredEvents : Model -> List Event
-getFilteredEvents { sport, events, countryFilter } =
-    events
-        |> List.filter
-            (\event ->
-                case countryFilter of
-                    Nothing ->
-                        True
-
-                    Just cf ->
-                        event.country == cf
-            )
-        |> List.sortBy
-            (\{ openDate } ->
-                ( Date.year openDate
-                , monthNumber <| Date.month <| openDate
-                , Date.day openDate
-                )
-            )
-
-
 viewEvents : Model -> Html msg
-viewEvents ({ sport, countryFilter } as m) =
+viewEvents ({ sport, events } as m) =
     let
-        hr =
-            tr []
-                [ th [] [ text "День" ]
-                , th [] [ text "Месяц" ]
-                , th [] [ text "Год" ]
-                , (case countryFilter of
-                    Just _ ->
-                        th [] []
-
-                    _ ->
-                        th [] [ text "Страна" ]
-                  )
-                , th [ colspan 2 ] [ text "Событие" ]
-                ]
-
-        filteredEvents =
-            getFilteredEvents m
+        events_ =
+            events
+                |> List.sortBy
+                    (\{ openDate } ->
+                        Date.toTime openDate
+                    )
     in
         div
             []
             [ table
                 [ class "table table-condensed" ]
-                [ thead [] [ hr ]
-                , tbody [] <| List.map (eventRow countryFilter) filteredEvents
+                [ tbody [] <| List.map eventRow events_
                 ]
             , Html.p []
                 [ h3 [] [ text <| toString sport.market_count ]
                 , text "рынков"
-                , h3 [] [ text <| toString <| List.length filteredEvents ]
+                , h3 [] [ text <| toString <| List.length events_ ]
                 , text "событий"
                 ]
             ]
+
+
+eventRow : Event -> Html msg
+eventRow { country, name, openDate } =
+    [ td [] [ text <| formatDay1 <| day_month_year openDate ] ]
+        ++ (viewEventName name)
+        ++ [ td [] [ text country ] ]
+        |> tr []
+
+
+viewEventName : String -> List (Html msg)
+viewEventName s =
+    case split (AtMost 1) (regex " [v@\\-] ") s of
+        [ s1, s2 ] ->
+            [ td [] [ text s1 ]
+            , td [] [ text s2 ]
+            ]
+
+        _ ->
+            [ td [ colspan 2 ] [ text s ] ]
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Time.every Time.second Tick

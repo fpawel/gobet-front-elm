@@ -1,6 +1,8 @@
 module Help.Utils exposing (..)
 
-import Date exposing (Month(..))
+import Dict exposing (Dict)
+import Date exposing (Date)
+import Month
 
 
 compareInvert : comparable -> comparable -> Order
@@ -89,41 +91,35 @@ list_parts_n n xs =
         list_window c xs
 
 
-monthNumber : Month -> number
-monthNumber x =
-    case x of
-        Jan ->
-            1
+day_month_year : Date.Date -> ( Int, Int, Int )
+day_month_year date =
+    let
+        day =
+            Date.day date
 
-        Feb ->
-            2
+        month =
+            Month.toNumber <| Date.month date
 
-        Mar ->
-            3
+        year =
+            Date.year date
+    in
+        ( day, month, year )
 
-        Apr ->
-            4
 
-        May ->
-            5
+listGoupBy : (a -> comparable) -> List a -> Dict comparable (List a)
+listGoupBy fk lst =
+    lst
+        |> List.foldr
+            (\x acc ->
+                let
+                    k =
+                        fk x
 
-        Jun ->
-            6
-
-        Jul ->
-            7
-
-        Aug ->
-            8
-
-        Sep ->
-            9
-
-        Oct ->
-            10
-
-        Nov ->
-            11
-
-        Dec ->
-            12
+                    xs =
+                        Dict.get k acc
+                            |> Maybe.withDefault []
+                            |> (::) x
+                in
+                    Dict.insert k xs acc
+            )
+            Dict.empty

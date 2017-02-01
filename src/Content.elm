@@ -3,7 +3,10 @@ module Content exposing (..)
 import Html exposing (Html)
 import Debug
 import Navigation
-import Football as MFootball
+
+
+--import Football as MFootball
+
 import Sport as MSport
 import Msg exposing (Msg)
 import Routing exposing (Route)
@@ -11,35 +14,38 @@ import Aping
 
 
 type Model
-    = Football MFootball.Model
-    | Sport MSport.Model
+    = Sport MSport.Model
 
 
-init : Navigation.Location -> List Aping.Sport -> Route -> ( Model, Cmd Msg )
-init location eventTypes route =
+init :
+    { a
+        | location : Navigation.Location
+        , sports : List Aping.Sport
+    }
+    -> Route
+    -> ( Model, Cmd Msg )
+init { location, sports } route =
     case route of
-        Routing.Football ->
-            Football (MFootball.init location) ! []
-
-        Routing.Sport eventType_id ->
-            case List.filter (\{ id } -> id == eventType_id) eventTypes of
-                eventType :: _ ->
+        Routing.Sport sportID ->
+            case List.filter (\{ id } -> id == sportID) sports of
+                sport :: _ ->
                     let
                         ( model_sport, cmd_sport ) =
-                            MSport.init location eventType
+                            MSport.init
+                                { location = location
+                                , sport = sport
+                                , sports = sports
+                                }
                     in
                         Sport model_sport ! [ Cmd.map Msg.Sport cmd_sport ]
 
                 _ ->
-                    Debug.crash <| "unknown event type id " ++ toString eventType_id
+                    Debug.crash <| "unknown sport id " ++ toString sportID
 
 
 route : Model -> Route
 route model =
     case model of
-        Football _ ->
-            Routing.Football
-
         Sport { sport } ->
             Routing.Sport sport.id
 
@@ -47,13 +53,6 @@ route model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
-        ( Msg.Football msg_football, Football model_football ) ->
-            let
-                ( updated_football, cmd_football ) =
-                    MFootball.update msg_football model_football
-            in
-                Football updated_football ! [ Cmd.map Msg.Football cmd_football ]
-
         ( Msg.Sport msg_sport, Sport model_sport ) ->
             let
                 ( updated_sport, cmd_sport ) =
@@ -68,11 +67,9 @@ update msg model =
 view : Model -> Html Msg
 view model =
     case model of
-        Football model_football ->
-            MFootball.view model_football
-
         Sport model_sport ->
             MSport.view model_sport
+                |> Html.map Msg.Sport
 
 
 
@@ -82,18 +79,12 @@ view model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
-        Football m ->
-            Sub.map Msg.Football <| MFootball.subscriptions m
-
-        _ ->
-            Sub.none
+        Sport m ->
+            Sub.map Msg.Sport <| MSport.subscriptions m
 
 
 what : Model -> String
 what x =
     case x of
-        Football _ ->
-            "Футбол сегодня"
-
         Sport { sport } ->
             sport.name

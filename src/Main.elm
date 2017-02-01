@@ -1,18 +1,26 @@
 port module Main exposing (..)
 
 import Html exposing (Html, Attribute, button, ul, li, h1, h3, span, div, nav)
-import Html.Attributes exposing (class, href, style, attribute)
+
+
+-- import Html.Attributes exposing (class, href, style, attribute)
+
 import Navigation
 import UrlParser exposing ((</>), parseHash)
 import Aping exposing (Event)
-import Help.Component exposing (mainMenuItem)
+
+
+-- import Help.Component exposing (mainMenuItem)
+
 import Routing
 import Content
 import Msg exposing (Msg)
-import Navbar
 
 
-main : Program (List EventType) Model Msg
+--import Navbar
+
+
+main : Program (List Aping.Sport) Model Msg
 main =
     Navigation.programWithFlags Msg.UrlChange
         { init = init
@@ -28,18 +36,22 @@ main =
 
 type alias Model =
     { content : Content.Model
-    , eventTypes : List EventType
+    , sports : List Aping.Sport
     , location : Navigation.Location
     }
 
 
-init : List EventType -> Navigation.Location -> ( Model, Cmd Msg )
-init eventTypes location =
+init : List Aping.Sport -> Navigation.Location -> ( Model, Cmd Msg )
+init sports location =
     let
         ( content, cmd ) =
-            Content.init location eventTypes Routing.Football
+            Content.init
+                { location = location
+                , sports = sports
+                }
+                (Routing.Sport 1)
     in
-        Model content eventTypes location ! [ cmd ]
+        Model content sports location ! [ cmd ]
 
 
 
@@ -61,7 +73,11 @@ update msg model =
                 if new_route == current_route then
                     model ! []
                 else
-                    Content.init model.location model.eventTypes new_route
+                    Content.init
+                        { location = model.location
+                        , sports = model.sports
+                        }
+                        new_route
                         |> updateContent model
 
         msg ->
@@ -88,90 +104,6 @@ subscriptions { content } =
 -- "☰"
 
 
-navbarConfig : Model -> Navbar.Config
-navbarConfig m =
-    { sports = m.eventTypes
-    , sport =
-        case m.content of
-            Content.Football _ ->
-                { id = 1, name = "Футбол сегодня", market_count = 0 }
-
-            Content.Sport m ->
-                Sport.eventType m
-    , menu =
-        case m.content of
-            Content.Football _ ->
-                []
-
-            Content.Sport m ->
-                Sport.eventType m
-
-            List { name = String, items = List { name = String, path = String } }
-    }
-
-
-dropNavEventTypes : Model -> List (Html Msg)
-dropNavEventTypes { eventTypes } =
-    let
-        linkEventType { id, name } =
-            Html.a
-                [ href ("#sport/" ++ toString id)
-                ]
-                [ Html.text name ]
-    in
-        eventTypes
-            |> List.sortBy (\{ market_count } -> market_count * -1)
-            |> List.map linkEventType
-            |> List.map (\x -> li [] [ x ])
-
-
-navbarHeader : Html msg
-navbarHeader =
-    div
-        [ class "navbar-header" ]
-        [ button
-            [ attribute "type" "button"
-            , class "navbar-toggle"
-            , attribute "data-toggle" "collapse"
-            , attribute "data-target" "#main-navbar"
-            ]
-            [ span [ class "icon-bar" ] []
-            , span [ class "icon-bar" ] []
-            , span [ class "icon-bar" ] []
-            ]
-        , Html.a
-            [ class "navbar-brand"
-            , href "#"
-            ]
-            [ Html.text "Centbet" ]
-        ]
-
-
-navbar : Model -> Html Msg
-navbar m =
-    nav
-        [ class "navbar navbar-default" ]
-        [ div
-            [ class "container-fluid" ]
-            [ navbarHeader
-            , div
-                [ class "collapse navbar-collapse" ]
-                [ ul
-                    [ class "nav navbar-nav" ]
-                    [ mainMenuItem (Content.what m.content) (dropNavEventTypes m)
-                    ]
-                ]
-            ]
-        ]
-
-
 view : Model -> Html Msg
 view model =
-    div
-        []
-        [ navbar model
-        , div
-            [ class "container" ]
-            [ Content.view model.content
-            ]
-        ]
+    Content.view model.content
