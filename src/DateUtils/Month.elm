@@ -1,4 +1,4 @@
-module Month exposing (..)
+module DateUtils.Month exposing (..)
 
 import Date exposing (Month(..))
 import Dict exposing (Dict)
@@ -22,10 +22,10 @@ values =
     ]
 
 
-nvalues : List ( Int, ( String, Month ) )
+nvalues : List ( Int, ( String, String, Month ) )
 nvalues =
-    List.map3
-        (,,)
+    List.map4
+        (,,,)
         (List.range 1 12)
         [ "января"
         , "февраля"
@@ -40,11 +40,24 @@ nvalues =
         , "ноября"
         , "декабря"
         ]
+        [ "январь"
+        , "февраль"
+        , "март"
+        , "апрель"
+        , "май"
+        , "июнь"
+        , "июль"
+        , "август"
+        , "сентябрь"
+        , "октябрь"
+        , "ноябрь"
+        , "декабрь"
+        ]
         values
-        |> List.map (\( a, b, c ) -> ( a, ( b, c ) ))
+        |> List.map (\( a, b, c, d ) -> ( a, ( b, c, d ) ))
 
 
-mvalues : Dict Int ( String, Month )
+mvalues : Dict Int ( String, String, Month )
 mvalues =
     Dict.fromList nvalues
 
@@ -53,7 +66,7 @@ fromNumber : Int -> Month
 fromNumber n =
     Dict.get n mvalues
         |> getMaybe ("Month.fromNumber " ++ toString n)
-        |> Tuple.second
+        |> \( _, _, c ) -> c
 
 
 
@@ -64,7 +77,7 @@ toNumber : Month -> Int
 toNumber m =
     nvalues
         |> List.filterMap
-            (\( n, ( _, m_ ) ) ->
+            (\( n, ( _, _, m_ ) ) ->
                 if m == m_ then
                     Just n
                 else
@@ -77,8 +90,15 @@ toNumber m =
 format1 : Int -> String
 format1 n =
     Dict.get n mvalues
-        |> Maybe.map (\( s, _ ) -> s)
+        |> Maybe.map (\( s, _, _ ) -> s)
         |> getMaybe ("Month.format1 " ++ toString n)
+
+
+format2 : Int -> String
+format2 n =
+    Dict.get n mvalues
+        |> Maybe.map (\( _, s, _ ) -> s)
+        |> getMaybe ("Month.format2 " ++ toString n)
 
 
 getMaybe : String -> Maybe a -> a

@@ -12,6 +12,7 @@ import Msg exposing (Msg)
 import Routing exposing (Route)
 import Aping
 import View.Sports
+import Time
 
 
 type Model
@@ -19,35 +20,38 @@ type Model
 
 
 initSport :
-    Location
-    -> Aping.Sport
+    { location : Location
+    , sport : Aping.Sport
+    , time : Time.Time
+    }
     -> ( Model, Cmd Msg )
-initSport location sport =
+initSport x =
     let
         ( model_sport, cmd_sport ) =
-            MSport.init
-                { location = location
-                , sport = sport
-                }
+            MSport.init x
     in
         Sport model_sport ! [ Cmd.map Msg.Sport cmd_sport ]
 
 
 init :
-    { a
-        | location : Location
-        , sports : List Aping.Sport
+    { location : Location
+    , sports : List Aping.Sport
+    , time : Time.Time
     }
     -> Route
     -> ( Model, Cmd Msg )
-init { location, sports } route =
+init { location, sports, time } route =
     case route of
         Routing.Sport sportID ->
             let
+                sport =
+                    Aping.getSportByID sportID sports
+
                 ( model_sport, cmd_sport ) =
                     MSport.init
                         { location = location
-                        , sport = Aping.getSportByID sportID sports
+                        , sport = sport
+                        , time = time
                         }
             in
                 Sport model_sport ! [ Cmd.map Msg.Sport cmd_sport ]
@@ -93,4 +97,6 @@ view sports model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    case model of
+        Sport model_sport ->
+            Sub.map Msg.Sport (MSport.subscriptions model_sport)

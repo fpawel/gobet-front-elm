@@ -38,6 +38,7 @@ init sports location =
             Content.init
                 { location = location
                 , sports = sports
+                , time = 0
                 }
                 (Routing.Sport 1)
     in
@@ -63,12 +64,19 @@ update msg model =
                 if new_route == current_route then
                     model ! []
                 else
-                    Content.init
-                        { location = model.location
-                        , sports = model.sports
-                        }
-                        new_route
-                        |> updateContent model
+                    let
+                        time =
+                            case model.content of
+                                Content.Sport { time } ->
+                                    time
+                    in
+                        Content.init
+                            { location = model.location
+                            , sports = model.sports
+                            , time = time
+                            }
+                            new_route
+                            |> updateContent model
 
         msg ->
             Content.update msg model.content

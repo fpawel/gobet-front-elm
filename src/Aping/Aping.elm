@@ -1,6 +1,7 @@
-module Aping exposing (Sport, Event, getSportByID)
+module Aping exposing (Sport, Event, getSportByID, eventTeams)
 
 import Date
+import Regex exposing (..)
 
 
 type alias Sport =
@@ -28,3 +29,13 @@ getSportByID sportID sports =
 
         _ ->
             Debug.crash <| "unknown sport id " ++ toString sportID
+
+
+eventTeams : String -> Maybe ( String, String )
+eventTeams s =
+    case split (AtMost 1) (regex " [v@\\-] ") s of
+        [ s1, s2 ] ->
+            Just ( s1, s2 )
+
+        _ ->
+            Nothing

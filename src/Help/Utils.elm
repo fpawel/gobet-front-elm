@@ -1,8 +1,6 @@
 module Help.Utils exposing (..)
 
 import Dict exposing (Dict)
-import Date exposing (Date)
-import Month
 
 
 compareInvert : comparable -> comparable -> Order
@@ -89,21 +87,6 @@ list_parts_n n xs =
                 a + 1
     in
         list_window c xs
-
-
-day_month_year : Date.Date -> ( Int, Int, Int )
-day_month_year date =
-    let
-        day =
-            Date.day date
-
-        month =
-            Month.toNumber <| Date.month date
-
-        year =
-            Date.year date
-    in
-        ( day, month, year )
 
 
 listGoupBy : (a -> comparable) -> List a -> Dict comparable (List a)

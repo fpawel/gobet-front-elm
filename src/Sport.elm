@@ -5,10 +5,10 @@ module Sport
         , update
         , init
         , view
+        , subscriptions
         )
 
 import Http
-import Regex exposing (..)
 import Json.Decode
 import Html
     exposing
@@ -30,14 +30,19 @@ import Html
         , table
         , text
         )
+import Html.Attributes exposing (class, classList, style, colspan, href)
+import Html.Events exposing (onClick)
 import Date
+import Time exposing (Time)
 import Navigation exposing (Location)
 import Aping exposing (Event)
 import Aping.Decoder
-import Html.Attributes exposing (class, style, colspan, href)
+import Aping.Events
 import Help.Component exposing (mainMenuItem, spinner_text)
-import Month
-import Table
+import Table exposing (defaultCustomizations)
+import View.SportTable
+import DateUtils exposing (FilterTag(..))
+import DateUtils.Filter
 
 
 -- MODEL
@@ -48,6 +53,8 @@ type alias Model =
     , sport : Aping.Sport
     , events : List Event
     , tableState : Table.State
+    , time : Time
+    , customDate : CustomDate
     , error : Maybe String
     }
 
@@ -55,18 +62,27 @@ type alias Model =
 type Msg
     = NewEvents (Result Http.Error (List Event))
     | SetTableState Table.State
+    | Tick Time
+    | NewCustomDate CustomDate
+
+
+type alias CustomDate =
+    DateUtils.Filter
 
 
 init :
     { location : Location
     , sport : Aping.Sport
+    , time : Time
     }
     -> ( Model, Cmd Msg )
-init { location, sport } =
+init { location, sport, time } =
     { location = location
     , sport = sport
     , events = []
     , tableState = Table.initialSort "Дата"
+    , time = time
+    , customDate = Just DateUtils.Today
     , error = Nothing
     }
         ! [ httpRequestEvents location sport ]
@@ -96,8 +112,15 @@ httpRequestEvents location eventType =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
+        NewCustomDate x ->
+            { m | customDate = x } ! []
+
         NewEvents (Ok events) ->
-            { m | events = events } ! []
+            { m
+                | events = events
+                , customDate = Aping.Events.initFilter m.time events
+            }
+                ! []
 
         NewEvents (Err error) ->
             { m | error = Just <| toString error }
@@ -106,92 +129,32 @@ update msg m =
         SetTableState newState ->
             { m | tableState = newState } ! []
 
+        Tick time ->
+            { m | time = time } ! []
+
 
 
 -- VIEW
 
 
-viewEventName : String -> List (Html msg)
-viewEventName s =
-    case split (AtMost 1) (regex " [v@\\-] ") s of
-        [ s1, s2 ] ->
-            [ td [] [ text s1 ]
-            , td [] [ text s2 ]
-            ]
-
-        _ ->
-            [ td [ colspan 2 ] [ text s ] ]
-
-
-config : Table.Config Aping.Event Msg
-config =
-    Table.config
-        { toId = (.id >> toString)
-        , toMsg = SetTableState
-        , columns =
-            [ Table.stringColumn "Дата" (.openDate >> formatDate)
-            , Table.stringColumn "Страна" .country
-            , Table.stringColumn "Событие" .name
-            ]
-        }
-
-
-formatDate : Date.Date -> String
-formatDate x =
-    let
-        day =
-            Date.day x
-
-        month =
-            Date.month x
-
-        year =
-            Date.year x
-    in
-        toString day ++ " " ++ Month.format1 (Month.toNumber month) ++ " " ++ toString year
-
-
-eventRow : Event -> Html msg
-eventRow event =
-    let
-        day =
-            Date.day event.openDate
-
-        month =
-            Date.month event.openDate
-
-        year =
-            Date.year event.openDate
-
-        xs1 =
-            [ td [] [ text <| toString day ++ " " ++ Month.format1 (Month.toNumber month) ++ " " ++ toString year ]
-            , td [] [ text event.country ]
-            ]
-    in
-        tr [] (xs1 ++ viewEventName event.name)
-
-
-countryFilterToString : Maybe String -> String
-countryFilterToString countryFilter =
-    case countryFilter of
-        Just "" ->
-            "Международные события"
-
-        Just s ->
-            s
-
-        _ ->
-            "Все страны"
-
-
 view : Model -> Html Msg
-view { error, events, tableState } =
+view ({ error, events, tableState, time, customDate } as model) =
     case error of
         Nothing ->
             if List.isEmpty events then
                 spinner_text "Подготовка данных..."
             else
-                Table.view config tableState events
+                let
+                    eventsToShow =
+                        Aping.Events.filterByDate time customDate events
+                in
+                    div []
+                        [ dateFilterBar model
+                        , Table.view
+                            (View.SportTable.config SetTableState customDate)
+                            tableState
+                            eventsToShow
+                        ]
 
         Just error ->
             div []
@@ -199,42 +162,42 @@ view { error, events, tableState } =
                 ]
 
 
-getFilteredEvents : Model -> List Event
-getFilteredEvents { sport, events } =
-    events
-        |> List.sortBy
-            (\{ openDate } ->
-                ( Date.year openDate
-                , Month.toNumber <| Date.month <| openDate
-                , Date.day openDate
-                )
-            )
-
-
-viewEvents : Model -> Html msg
-viewEvents ({ sport } as m) =
+dateFilterPill : Model -> DateUtils.Filter -> Html Msg
+dateFilterPill { customDate, time } x =
     let
-        hr =
-            tr []
-                [ th [] [ text "Дата" ]
-                , th [] [ text "Страна" ]
-                , th [ colspan 2 ] [ text "Событие" ]
-                ]
-
-        filteredEvents =
-            getFilteredEvents m
+        ({ month, year } as now_) =
+            now time
     in
-        div
-            []
-            [ table
-                [ class "table table-condensed" ]
-                [ thead [] [ hr ]
-                , tbody [] <| List.map eventRow filteredEvents
-                ]
-            , Html.p []
-                [ h3 [] [ text <| toString sport.market_count ]
-                , text "рынков"
-                , h3 [] [ text <| toString <| List.length filteredEvents ]
-                , text "событий"
+        li [ classList [ ( "active", x == customDate ) ] ]
+            [ Html.a [ href "#", onClick (NewCustomDate x) ]
+                [ text <| DateUtils.Filter.format now_ x
                 ]
             ]
+
+
+dateFilterBar : Model -> Html Msg
+dateFilterBar model =
+    DateUtils.Filter.values
+        |> List.map (dateFilterPill model)
+        |> ul
+            [ class "nav nav-pills"
+            , style [ ( "margin", "10px" ) ]
+            ]
+
+
+
+-- SUBSCRIPTINS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Time.every Time.second Tick
+
+
+
+-- HELP
+
+
+now : Time.Time -> DateUtils.Date
+now time =
+    DateUtils.dateFromDate (Date.fromTime time)
