@@ -1,18 +1,8 @@
 module DateUtils exposing (..)
 
-import Date
+import Date exposing (Date)
+import Time exposing (Time)
 import DateUtils.Month
-
-
-type FilterTag
-    = Today
-    | Tomorrow
-    | ThisMonth
-    | ThisYear
-
-
-type alias Filter =
-    Maybe FilterTag
 
 
 type alias Date =
@@ -31,6 +21,16 @@ type alias DateTime =
     , month : Int
     , year : Int
     }
+
+
+dateFromTime : Time -> Date
+dateFromTime =
+    Date.fromTime >> dateFromDate
+
+
+timeIncDay : Float -> Time -> Time
+timeIncDay n t =
+    t + (n * 24 * Time.hour)
 
 
 dateFromDate : Date.Date -> Date
@@ -85,8 +85,38 @@ dateTimeFromDate date =
         }
 
 
-formatDate : Date -> String
-formatDate { day, month, year } =
+formatDate1 : Date.Date -> String
+formatDate1 d =
+    let
+        { day, month, year } =
+            dateFromDate d
+
+        strDay =
+            (if day < 10 then
+                "0"
+             else
+                ""
+            )
+                ++ toString day
+
+        strMonth =
+            (if month < 10 then
+                "0"
+             else
+                ""
+            )
+                ++ toString month
+    in
+        strDay ++ " " ++ strMonth ++ " " ++ toString year
+
+
+formatDayMonthYear : Date -> String
+formatDayMonthYear ({ year } as x) =
+    formatDayMonth x ++ " " ++ toString year
+
+
+formatDayMonth : Date -> String
+formatDayMonth { day, month } =
     let
         strDay =
             (if day < 10 then
@@ -100,3 +130,32 @@ formatDate { day, month, year } =
             DateUtils.Month.format1 month
     in
         strDay ++ " " ++ strMonth
+
+
+whatDayAfter : Time.Time -> Date -> String
+whatDayAfter nowTime date =
+    let
+        nowDate =
+            dateFromDate <| Date.fromTime nowTime
+
+        isNthDayAfter n =
+            date == { nowDate | day = nowDate.day + n }
+    in
+        if isNthDayAfter 0 then
+            "Сегодня"
+        else if isNthDayAfter 1 then
+            "Завтра"
+        else if isNthDayAfter 2 then
+            "Послезавтра"
+        else
+            case List.filter isNthDayAfter (List.range 3 6) of
+                n :: _ ->
+                    Date.fromTime (nowTime + Time.hour * 24 * (toFloat n))
+                        |> Date.dayOfWeek
+                        |> toString
+
+                _ ->
+                    if date.year == nowDate.year then
+                        formatDayMonth date
+                    else
+                        formatDayMonthYear date

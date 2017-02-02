@@ -30,19 +30,15 @@ import Html
         , table
         , text
         )
-import Html.Attributes exposing (class, classList, style, colspan, href)
-import Html.Events exposing (onClick)
 import Date
 import Time exposing (Time)
 import Navigation exposing (Location)
 import Aping exposing (Event)
 import Aping.Decoder
-import Aping.Events
 import Help.Component exposing (mainMenuItem, spinner_text)
 import Table exposing (defaultCustomizations)
 import View.SportTable
-import DateUtils exposing (FilterTag(..))
-import DateUtils.Filter
+import DateUtils
 
 
 -- MODEL
@@ -54,7 +50,6 @@ type alias Model =
     , events : List Event
     , tableState : Table.State
     , time : Time
-    , customDate : CustomDate
     , error : Maybe String
     }
 
@@ -63,11 +58,6 @@ type Msg
     = NewEvents (Result Http.Error (List Event))
     | SetTableState Table.State
     | Tick Time
-    | NewCustomDate CustomDate
-
-
-type alias CustomDate =
-    DateUtils.Filter
 
 
 init :
@@ -82,7 +72,6 @@ init { location, sport, time } =
     , events = []
     , tableState = Table.initialSort "Дата"
     , time = time
-    , customDate = Just DateUtils.Today
     , error = Nothing
     }
         ! [ httpRequestEvents location sport ]
@@ -112,15 +101,8 @@ httpRequestEvents location eventType =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
-        NewCustomDate x ->
-            { m | customDate = x } ! []
-
         NewEvents (Ok events) ->
-            { m
-                | events = events
-                , customDate = Aping.Events.initFilter m.time events
-            }
-                ! []
+            { m | events = events } ! []
 
         NewEvents (Err error) ->
             { m | error = Just <| toString error }
@@ -138,23 +120,18 @@ update msg m =
 
 
 view : Model -> Html Msg
-view ({ error, events, tableState, time, customDate } as model) =
+view ({ error, events, tableState, time } as model) =
     case error of
         Nothing ->
             if List.isEmpty events then
                 spinner_text "Подготовка данных..."
             else
-                let
-                    eventsToShow =
-                        Aping.Events.filterByDate time customDate events
-                in
-                    div []
-                        [ dateFilterBar model
-                        , Table.view
-                            (View.SportTable.config SetTableState customDate)
-                            tableState
-                            eventsToShow
-                        ]
+                div []
+                    [ Table.view
+                        (View.SportTable.config SetTableState)
+                        tableState
+                        events
+                    ]
 
         Just error ->
             div []
@@ -162,30 +139,52 @@ view ({ error, events, tableState, time, customDate } as model) =
                 ]
 
 
-dateFilterPill : Model -> DateUtils.Filter -> Html Msg
-dateFilterPill { customDate, time } x =
+
+{--
+dateFilterPill : Model -> FilterDay -> Html Msg
+dateFilterPill { filterDay, time } x =
     let
         ({ month, year } as now_) =
             now time
+
+        s =
+            case x of
+                Just a ->
+                    DateUtils.whatDayAfter time a
+
+                _ ->
+                    "Все дни..."
     in
-        li [ classList [ ( "active", x == customDate ) ] ]
-            [ Html.a [ href "#", onClick (NewCustomDate x) ]
-                [ text <| DateUtils.Filter.format now_ x
+        li [ classList [ ( "active", x == filterDay ) ] ]
+            [ Html.a [ href "#", onClick (NewFilterDay x) ]
+                [ text s
                 ]
             ]
 
 
 dateFilterBar : Model -> Html Msg
 dateFilterBar model =
-    DateUtils.Filter.values
-        |> List.map (dateFilterPill model)
-        |> ul
-            [ class "nav nav-pills"
-            , style [ ( "margin", "10px" ) ]
-            ]
+    let
+        stl =
+            style [ ( "margin", "10px" ) ]
 
+        xs =
+            (Aping.Events.daysFilters model.time model.events
+                |> List.map Just
+            )
+                ++ [ Nothing ]
+    in
+        if List.length model.events < 50 || xs == [] then
+            div [ stl ] []
+        else
+            xs
+                |> List.map (dateFilterPill model)
+                |> ul
+                    [ class "nav nav-pills"
+                    , stl
+                    ]
 
-
+-}
 -- SUBSCRIPTINS
 
 

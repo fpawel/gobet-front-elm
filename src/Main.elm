@@ -104,4 +104,9 @@ subscriptions { content } =
 
 view : Model -> Html Msg
 view model =
-    View.Container.view [] (Content.view model.sports model.content)
+    View.Container.view
+        [ { name = "Футбол", active = False, route = "football" }
+        , { name = "Обзор рынков", active = True, route = "sport/1" }
+        ]
+        []
+        (Content.view model.sports model.content)

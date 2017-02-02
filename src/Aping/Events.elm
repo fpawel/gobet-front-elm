@@ -1,22 +1,11 @@
-module Aping.Events
-    exposing
-        ( countries
-        , groupByDays
-        , defaultDay
-        , dateTree
-        , filterByDate
-        , initFilter
-        )
+module Aping.Events exposing (..)
 
 import Dict exposing (Dict)
 import Set exposing (Set)
 import Date
 import Help.Utils exposing (compareInvert, listGoupBy)
 import Aping exposing (..)
-import Time
-import DateUtils exposing (FilterTag(..))
 import DateUtils.Month
-import DateUtils.Filter
 
 
 type alias Day =
@@ -102,79 +91,4 @@ dateTree events =
                                     |> (,) m
                             )
                         |> (,) y
-                )
-
-
-defaultDay : Day -> List Event -> Day
-defaultDay today events =
-    let
-        days =
-            groupByDays events
-                |> Dict.toList
-                |> List.map (Tuple.first)
-    in
-        if Set.member today <| Set.fromList days then
-            today
-        else
-            days
-                |> List.filter (\x -> x > today)
-                |> List.head
-                |> Maybe.withDefault
-                    (days
-                        |> List.head
-                        |> Maybe.withDefault ( 0, 0, 0 )
-                    )
-
-
-initFilter : Time.Time -> List Event -> DateUtils.Filter
-initFilter time events =
-    DateUtils.Filter.values
-        |> List.filterMap
-            (\x ->
-                case filterByDate time x events of
-                    [] ->
-                        Nothing
-
-                    _ ->
-                        Just x
-            )
-        |> List.head
-        |> Maybe.withDefault Nothing
-
-
-filterByDate : Time.Time -> DateUtils.Filter -> List Event -> List Event
-filterByDate time customDate events =
-    let
-        now_ =
-            DateUtils.dateFromDate (Date.fromTime time)
-    in
-        events
-            |> List.filter
-                (\{ openDate } ->
-                    let
-                        date =
-                            DateUtils.dateFromDate openDate
-                    in
-                        case customDate of
-                            Just Today ->
-                                now_ == date
-
-                            Just Tomorrow ->
-                                let
-                                    tomtime =
-                                        time + 24 * Time.hour
-
-                                    tomdate =
-                                        Date.fromTime tomtime
-                                in
-                                    date == DateUtils.dateFromDate tomdate
-
-                            Just ThisMonth ->
-                                ( date.month, date.year ) == ( now_.month, now_.year )
-
-                            Just ThisYear ->
-                                date.year == now_.year
-
-                            _ ->
-                                True
                 )
