@@ -89,8 +89,8 @@ list_parts_n n xs =
         list_window c xs
 
 
-listGoupBy : (a -> comparable) -> List a -> Dict comparable (List a)
-listGoupBy fk lst =
+listGroupBy : (a -> comparable) -> List a -> Dict comparable (List a)
+listGroupBy fk lst =
     lst
         |> List.foldr
             (\x acc ->

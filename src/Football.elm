@@ -342,7 +342,7 @@ viewGamesList games =
                 |> tr []
     in
         table
-            [ Attr.class "table table-condensed"
+            [ Attr.class "table table-condensed table-football"
             ]
             [ Html.thead [] [ thead ]
             , Html.tbody [] trs

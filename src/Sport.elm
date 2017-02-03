@@ -30,15 +30,19 @@ import Html
         , table
         , text
         )
+import Html.Attributes exposing (colspan, class)
 import Date
+import Dict
 import Time exposing (Time)
 import Navigation exposing (Location)
 import Aping exposing (Event)
 import Aping.Decoder
+import Aping.Events
 import Help.Component exposing (mainMenuItem, spinner_text)
 import Table exposing (defaultCustomizations)
 import View.SportTable
 import DateUtils
+import DateUtils.Month
 
 
 -- MODEL
@@ -126,12 +130,10 @@ view ({ error, events, tableState, time } as model) =
             if List.isEmpty events then
                 spinner_text "Подготовка данных..."
             else
-                div []
-                    [ Table.view
-                        (View.SportTable.config SetTableState)
-                        tableState
-                        events
-                    ]
+                Table.view
+                    (View.SportTable.config SetTableState)
+                    tableState
+                    events
 
         Just error ->
             div []
@@ -139,52 +141,53 @@ view ({ error, events, tableState, time } as model) =
                 ]
 
 
-
-{--
-dateFilterPill : Model -> FilterDay -> Html Msg
-dateFilterPill { filterDay, time } x =
-    let
-        ({ month, year } as now_) =
-            now time
-
-        s =
-            case x of
-                Just a ->
-                    DateUtils.whatDayAfter time a
-
-                _ ->
-                    "Все дни..."
-    in
-        li [ classList [ ( "active", x == filterDay ) ] ]
-            [ Html.a [ href "#", onClick (NewFilterDay x) ]
-                [ text s
+eventRow : Event -> Html a
+eventRow { country, name } =
+    case Aping.eventTeams name of
+        Just ( home, away ) ->
+            tr []
+                [ td [] [ text country ]
+                , td [] [ text home ]
+                , td [] [ text away ]
                 ]
+
+        _ ->
+            tr []
+                [ td [] [ text country ]
+                , td [ colspan 2 ] [ text name ]
+                ]
+
+
+dateRow : ( Int, Int, Int ) -> Html a
+dateRow ( year, month, day ) =
+    tr []
+        [ th [ colspan 3 ]
+            [ toString year
+                ++ " "
+                ++ toString day
+                ++ " "
+                ++ DateUtils.Month.format1 month
+                |> text
             ]
+        ]
 
 
-dateFilterBar : Model -> Html Msg
-dateFilterBar model =
-    let
-        stl =
-            style [ ( "margin", "10px" ) ]
-
-        xs =
-            (Aping.Events.daysFilters model.time model.events
-                |> List.map Just
+eventsTable : List Event -> Html msg
+eventsTable events =
+    Aping.Events.groupByDays events
+        |> Dict.toList
+        |> List.sortBy Tuple.first
+        |> List.map
+            (\( k, v ) ->
+                (dateRow k) :: (List.map eventRow v)
             )
-                ++ [ Nothing ]
-    in
-        if List.length model.events < 50 || xs == [] then
-            div [ stl ] []
-        else
-            xs
-                |> List.map (dateFilterPill model)
-                |> ul
-                    [ class "nav nav-pills"
-                    , stl
-                    ]
+        |> List.concat
+        |> tbody []
+        |> List.singleton
+        |> table [ class "table table-condensed" ]
 
--}
+
+
 -- SUBSCRIPTINS
 
 

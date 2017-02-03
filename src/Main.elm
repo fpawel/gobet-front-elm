@@ -1,6 +1,7 @@
 port module Main exposing (..)
 
 import Html exposing (Html)
+import Time exposing (Time)
 import Navigation
 import UrlParser exposing ((</>), parseHash)
 import Aping exposing (Event)
@@ -10,7 +11,7 @@ import Msg exposing (Msg)
 import View.Container
 
 
-main : Program (List Aping.Sport) Model Msg
+main : Program { sports : List Aping.Sport, time : Time } Model Msg
 main =
     Navigation.programWithFlags Msg.UrlChange
         { init = init
@@ -28,21 +29,21 @@ type alias Model =
     { content : Content.Model
     , sports : List Aping.Sport
     , location : Navigation.Location
+    , time : Time
     }
 
 
-init : List Aping.Sport -> Navigation.Location -> ( Model, Cmd Msg )
-init sports location =
-    let
-        ( content, cmd ) =
-            Content.init
-                { location = location
-                , sports = sports
-                , time = 0
-                }
-                (Routing.Sport 1)
-    in
-        Model content sports location ! [ cmd ]
+init :
+    { a | sports : List Aping.Sport, time : Time }
+    -> Navigation.Location
+    -> ( Model, Cmd Msg )
+init { sports, time } location =
+    { content = Content.football location
+    , sports = sports
+    , location = location
+    , time = time
+    }
+        ! []
 
 
 
@@ -52,40 +53,47 @@ init sports location =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Msg.Tick time ->
+            { model | time = time } ! []
+
         Msg.UrlChange url ->
             let
-                current_route =
+                currentRoute =
                     Content.route model.content
 
-                new_route =
+                newRoute =
                     parseHash Routing.parser url
-                        |> Maybe.withDefault current_route
+                        |> Maybe.withDefault currentRoute
             in
-                if new_route == current_route then
+                if newRoute == currentRoute then
                     model ! []
                 else
-                    let
-                        time =
-                            case model.content of
-                                Content.Sport { time } ->
-                                    time
-                    in
-                        Content.init
-                            { location = model.location
-                            , sports = model.sports
-                            , time = time
-                            }
-                            new_route
-                            |> updateContent model
+                    navigate newRoute model
 
         msg ->
-            Content.update msg model.content
-                |> updateContent model
+            let
+                ( content, cmd ) =
+                    Content.update msg model.content
+            in
+                { model | content = content } ! [ cmd ]
 
 
-updateContent : Model -> ( Content.Model, Cmd Msg ) -> ( Model, Cmd Msg )
-updateContent model ( content, cmd ) =
-    { model | content = content } ! [ cmd ]
+navigate : Routing.Route -> Model -> ( Model, Cmd Msg )
+navigate newRoute model =
+    let
+        ( content, cmd ) =
+            case newRoute of
+                Routing.Football ->
+                    Content.football model.location ! []
+
+                Routing.Sport sportID ->
+                    Content.sport
+                        { location = model.location
+                        , sport = Aping.getSportByID sportID model.sports
+                        , time = model.time
+                        }
+    in
+        { model | content = content } ! [ cmd ]
 
 
 
@@ -94,7 +102,10 @@ updateContent model ( content, cmd ) =
 
 subscriptions : Model -> Sub Msg
 subscriptions { content } =
-    Content.subscriptions content
+    [ Content.subscriptions content
+    , Time.every Time.second Msg.Tick
+    ]
+        |> Sub.batch
 
 
 
@@ -103,10 +114,22 @@ subscriptions { content } =
 
 
 view : Model -> Html Msg
-view model =
+view { content, sports } =
     View.Container.view
-        [ { name = "Футбол", active = False, route = "football" }
-        , { name = "Обзор рынков", active = True, route = "sport/1" }
+        [ { name = "Футбол"
+          , active = Content.route content == Routing.Football
+          , route = "football"
+          }
+        , { name = "Обзор рынков"
+          , active =
+                case Content.route content of
+                    Routing.Sport _ ->
+                        True
+
+                    _ ->
+                        False
+          , route = "sport/1"
+          }
         ]
         []
-        (Content.view model.sports model.content)
+        (Content.view sports content)

@@ -1,13 +1,13 @@
 module Msg exposing (Msg(..))
 
 import Navigation
-
-
---import Football as F
-
-import Sport as S
+import Football as MFootball
+import Sport as MSport
+import Time
 
 
 type Msg
-    = Sport S.Msg
+    = Sport MSport.Msg
+    | Football MFootball.Msg
     | UrlChange Navigation.Location
+    | Tick Time.Time
