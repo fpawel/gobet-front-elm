@@ -59,7 +59,7 @@ type alias Model =
 
 
 type Msg
-    = NewEvents (Result Http.Error (List Event))
+    = NewEvents (Result String (List Event))
     | SetTableState Table.State
     | Tick Time
 
@@ -95,7 +95,7 @@ httpRequestEvents location eventType =
                 |> Json.Decode.field "result"
     in
         Http.get eventsURL decoder
-            |> Http.send NewEvents
+            |> Http.send (Result.mapError toString >> NewEvents)
 
 
 
@@ -106,10 +106,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
         NewEvents (Ok events) ->
-            { m | events = events } ! []
+            { m | events = events, error = Nothing } ! []
 
         NewEvents (Err error) ->
-            { m | error = Just <| toString error }
+            { m | error = Just <| Debug.log "SPORT error" <| toString error }
                 ! [ httpRequestEvents m.location m.sport ]
 
         SetTableState newState ->
@@ -136,8 +136,8 @@ view ({ error, events, tableState, time } as model) =
                     events
 
         Just error ->
-            div []
-                [ Html.p [] [ text error ]
+            div [ class "alert alert-danger " ]
+                [ Html.text "Что-то пошло не так (:"
                 ]
 
 

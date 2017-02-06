@@ -16,8 +16,8 @@ import Navigation exposing (Location)
 import Json.Decode as D exposing (Decoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
 import Json.Encode as E exposing (object)
-import Html exposing (Html, Attribute, span, div, table, td, tr, th)
-import Html.Attributes as Attr
+import Html exposing (Html, Attribute, span, div, table, td, tr, th, h3)
+import Html.Attributes as Attr exposing (class)
 import Help.Utils exposing (isJust)
 import Help.Component exposing (spinner_text)
 import Styles as CssA
@@ -32,6 +32,7 @@ type Model
     = Model
         { games : List Game
         , location : Location
+        , error : Maybe String
         }
 
 
@@ -77,7 +78,7 @@ type alias GameCahnges =
 
 
 type Msg
-    = MsgReplyFromServer ReplyFromServer
+    = MsgReplyFromServer (Result String ReplyFromServer)
 
 
 type alias ReplyFromServer =
@@ -90,13 +91,16 @@ type alias ReplyFromServer =
 
 init : Location -> Model
 init location =
-    Model { games = [], location = location }
+    Model { games = [], location = location, error = Nothing }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg (Model m) =
     case msg of
-        MsgReplyFromServer replyFromServer ->
+        MsgReplyFromServer (Err error) ->
+            Model { m | error = Just <| Debug.log "FOOTBAL error" error } ! []
+
+        MsgReplyFromServer (Ok replyFromServer) ->
             let
                 games =
                     updateGamesList replyFromServer m.games
@@ -104,7 +108,7 @@ update msg (Model m) =
                 answer =
                     WebSocket.send (websocketURL m) replyFromServer.hashCode
             in
-                Model { m | games = games } ! [ answer ]
+                Model { m | games = games, error = Nothing } ! [ answer ]
 
 
 updateGame : Game -> GameCahnges -> Game
@@ -172,9 +176,11 @@ websocketURL { location } =
 
 subscriptions : Model -> Sub Msg
 subscriptions (Model m) =
-    [ WebSocket.listen (websocketURL m) decodeReplyFromServer
-    ]
-        |> Sub.batch
+    WebSocket.listen
+        (websocketURL m)
+        (D.decodeString decoderReplyFromServer
+            >> MsgReplyFromServer
+        )
 
 
 
@@ -233,16 +239,6 @@ decoderReplyFromServer =
         |> optional "outplay" (D.list D.int) []
         |> optional "game_changes" (D.list decoderGameCahnges) []
         |> required "hash_code" D.string
-
-
-decodeReplyFromServer : String -> Msg
-decodeReplyFromServer str =
-    case D.decodeString decoderReplyFromServer str of
-        Ok x ->
-            MsgReplyFromServer x
-
-        Err error ->
-            Debug.crash ("error decoding `Football` message : " ++ error)
 
 
 
@@ -350,10 +346,17 @@ viewGamesList games =
 
 
 view : Model -> Html a
-view (Model { games }) =
-    case games of
-        [] ->
-            spinner_text "Подготовка данных..."
+view (Model { games, error }) =
+    case error of
+        Just _ ->
+            div [ class "alert alert-danger " ]
+                [ Html.text "Что-то пошло не так (:"
+                ]
 
         _ ->
-            viewGamesList games
+            case games of
+                [] ->
+                    spinner_text "Подготовка данных..."
+
+                _ ->
+                    viewGamesList games

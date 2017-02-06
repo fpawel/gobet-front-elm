@@ -1,4 +1,4 @@
-module Aping exposing (Sport, Event, getSportByID, eventTeams)
+module Aping exposing (Sport, Event, Market, getSportByID, eventTeams)
 
 import Date
 import Regex exposing (..)
@@ -18,6 +18,21 @@ type alias Event =
     , openDate : Date.Date
     , timezone : String
     , venue : String
+    }
+
+
+type alias Market =
+    { id : Int
+    , name : String
+    , totalMatched : Float
+    , runners : List Runner
+    , competition : String
+    }
+
+
+type alias Runner =
+    { id : Int
+    , name : String
     }
 
 
