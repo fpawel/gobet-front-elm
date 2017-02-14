@@ -30,19 +30,12 @@ import Html
         , table
         , text
         )
-import Html.Attributes exposing (colspan, class)
-import Date
-import Dict
-import Time exposing (Time)
 import Navigation exposing (Location)
 import Aping exposing (Event)
 import Aping.Decoder
-import Aping.Events
 import Help.Component exposing (mainMenuItem, spinner_text)
 import Table exposing (defaultCustomizations)
 import View.SportTable
-import DateUtils
-import DateUtils.Month
 
 
 -- MODEL
@@ -53,30 +46,24 @@ type alias Model =
     , sport : Aping.Sport
     , events : List Event
     , tableState : Table.State
-    , time : Time
-    , error : Maybe String
     }
 
 
 type Msg
     = NewEvents (Result String (List Event))
     | SetTableState Table.State
-    | Tick Time
 
 
 init :
     { location : Location
     , sport : Aping.Sport
-    , time : Time
     }
     -> ( Model, Cmd Msg )
-init { location, sport, time } =
+init { location, sport } =
     { location = location
     , sport = sport
     , events = []
-    , tableState = Table.initialSort "Дата"
-    , time = time
-    , error = Nothing
+    , tableState = Table.initialSort "Дата открытия"
     }
         ! [ httpRequestEvents location sport ]
 
@@ -92,7 +79,7 @@ httpRequestEvents location eventType =
 
         decoder =
             Json.Decode.list Aping.Decoder.event
-                |> Json.Decode.field "result"
+                |> Json.Decode.field "ok"
     in
         Http.get eventsURL decoder
             |> Http.send (Result.mapError toString >> NewEvents)
@@ -106,17 +93,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
         NewEvents (Ok events) ->
-            { m | events = events, error = Nothing } ! []
+            { m | events = events } ! []
 
         NewEvents (Err error) ->
-            { m | error = Just <| Debug.log "SPORT error" <| toString error }
-                ! [ httpRequestEvents m.location m.sport ]
+            let
+                _ =
+                    Debug.log ("SPORT " ++ toString m.sport ++ " error") error
+            in
+                m ! []
 
         SetTableState newState ->
             { m | tableState = newState } ! []
-
-        Tick time ->
-            { m | time = time } ! []
 
 
 
@@ -124,67 +111,14 @@ update msg m =
 
 
 view : Model -> Html Msg
-view ({ error, events, tableState, time } as model) =
-    case error of
-        Nothing ->
-            if List.isEmpty events then
-                spinner_text "Подготовка данных..."
-            else
-                Table.view
-                    (View.SportTable.config SetTableState)
-                    tableState
-                    events
-
-        Just error ->
-            div [ class "alert alert-danger " ]
-                [ Html.text "Что-то пошло не так (:"
-                ]
-
-
-eventRow : Event -> Html a
-eventRow { country, name } =
-    case Aping.eventTeams name of
-        Just ( home, away ) ->
-            tr []
-                [ td [] [ text country ]
-                , td [] [ text home ]
-                , td [] [ text away ]
-                ]
-
-        _ ->
-            tr []
-                [ td [] [ text country ]
-                , td [ colspan 2 ] [ text name ]
-                ]
-
-
-dateRow : ( Int, Int, Int ) -> Html a
-dateRow ( year, month, day ) =
-    tr []
-        [ th [ colspan 3 ]
-            [ toString year
-                ++ " "
-                ++ toString day
-                ++ " "
-                ++ DateUtils.Month.format1 month
-                |> text
-            ]
-        ]
-
-
-eventsTable : List Event -> Html msg
-eventsTable events =
-    Aping.Events.groupByDays events
-        |> Dict.toList
-        |> List.sortBy Tuple.first
-        |> List.map
-            (\( k, v ) ->
-                (dateRow k) :: (List.map eventRow v)
-            )
-        |> List.concat
-        |> tbody []
-        |> List.singleton
-        |> table [ class "table table-condensed" ]
+view ({ events, tableState } as model) =
+    if List.isEmpty events then
+        spinner_text "Подготовка данных..."
+    else
+        Table.view
+            (View.SportTable.config SetTableState)
+            tableState
+            events
 
 
 
@@ -193,13 +127,4 @@ eventsTable events =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Time.every Time.second Tick
-
-
-
--- HELP
-
-
-now : Time.Time -> DateUtils.Date
-now time =
-    DateUtils.dateFromDate (Date.fromTime time)
+    Sub.none

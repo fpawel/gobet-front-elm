@@ -1,4 +1,4 @@
-module Aping.Decoder exposing (event, market)
+module Aping.Decoder exposing (event, market, sport)
 
 import Date
 import Json.Decode as D exposing (Decoder)
@@ -43,17 +43,21 @@ event =
         |> required "open_date" date
         |> optional "time_zone" D.string ""
         |> optional "venue" D.string ""
+        |> optional "event_type" sport (Sport 0 "" 0)
+        |> optional "markets" (D.list market) []
 
 
-type alias Runner1 =
-    { id : Int
-    , name : String
-    }
+sport : Decoder Sport
+sport =
+    decode Sport
+        |> required "id" D.int
+        |> required "name" D.string
+        |> optional "market_count" D.int 0
 
 
-runner : Decoder Runner1
+runner : Decoder Runner
 runner =
-    decode Runner1
+    decode Runner
         |> required "selectionId" D.int
         |> required "runnerName" D.string
 
@@ -61,8 +65,8 @@ runner =
 market : Decoder Aping.Market
 market =
     decode Aping.Market
-        |> required "marketId" D.int
+        |> required "marketId" D.string
         |> required "marketName" D.string
-        |> required "totalMatched" D.float
+        |> optional "totalMatched" D.float 0
         |> optional "runners" (D.list runner) []
         |> optional "competition" D.string ""

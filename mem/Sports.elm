@@ -11,7 +11,7 @@ import Html
         , span
         , text
         )
-import Html.Attributes exposing (class, href, style, attribute, colspan, href, id)
+import Html.Attributes exposing (class, classList, href, style, attribute, colspan, href, id)
 import Aping exposing (Event)
 
 
@@ -23,15 +23,25 @@ type alias Config =
 
 linkSport : Int -> Aping.Sport -> Html a
 linkSport sportID { name, id } =
-    li
-        (if sportID == id then
-            [ class "active" ]
-         else
-            []
-        )
-        [ a [ href <| "#sport/" ++ toString id ]
-            [ text name ]
-        ]
+    let
+        href_ =
+            href <| "#sport/" ++ toString id
+
+        text_ =
+            text name
+
+        isActive =
+            sportID == id
+    in
+        li
+            [ classList [ ( "active", isActive ) ] ]
+            [ a [ href_ ]
+                [ if isActive then
+                    a [ href_ ] [ text_ ]
+                  else
+                    text_
+                ]
+            ]
 
 
 view : Config -> Html a

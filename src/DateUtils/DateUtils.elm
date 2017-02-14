@@ -51,6 +51,16 @@ dateFromDate date =
         }
 
 
+int2 : Int -> String
+int2 n =
+    (if n < 10 then
+        "0"
+     else
+        ""
+    )
+        ++ toString n
+
+
 dateTimeFromDate : Date.Date -> DateTime
 dateTimeFromDate date =
     let
@@ -85,29 +95,24 @@ dateTimeFromDate date =
         }
 
 
+formatTime1 : Date.Date -> String
+formatTime1 d =
+    let
+        { minute, hour } =
+            dateTimeFromDate d
+    in
+        (int2 hour)
+            ++ ":"
+            ++ (int2 minute)
+
+
 formatDate1 : Date.Date -> String
 formatDate1 d =
     let
         { day, month, year } =
             dateFromDate d
-
-        strDay =
-            (if day < 10 then
-                "0"
-             else
-                ""
-            )
-                ++ toString day
-
-        strMonth =
-            (if month < 10 then
-                "0"
-             else
-                ""
-            )
-                ++ toString month
     in
-        strDay ++ " " ++ strMonth ++ " " ++ toString year
+        (int2 day) ++ " " ++ (int2 month) ++ " " ++ toString year
 
 
 formatDayMonthYear : Date -> String

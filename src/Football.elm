@@ -16,8 +16,8 @@ import Navigation exposing (Location)
 import Json.Decode as D exposing (Decoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
 import Json.Encode as E exposing (object)
-import Html exposing (Html, Attribute, span, div, table, td, tr, th, h3)
-import Html.Attributes as Attr exposing (class)
+import Html exposing (Html, Attribute, span, div, table, td, tr, th, h3, a, text)
+import Html.Attributes as Attr exposing (class, href)
 import Help.Utils exposing (isJust)
 import Help.Component exposing (spinner_text)
 import Styles as CssA
@@ -298,9 +298,9 @@ viewGame x =
     in
         [ td [] [ Html.text <| (toString (x.page + 1)) ++ "." ++ (toString (x.order + 1)) ]
         , td [] [ Html.text x.event.country ]
-        , td [ Attr.class "home-team" ] [ Html.text x.home ]
+        , td [ Attr.class "home-team" ] [ linkEvent x.event.id x.home ]
         , td_ x.uresult x.result
-        , td [ Attr.class "away-team" ] [ Html.text x.away ]
+        , td [ Attr.class "away-team" ] [ linkEvent x.event.id x.away ]
         , td_ x.utime x.time
         , odd x.win1
         , odd x.win2
@@ -360,3 +360,11 @@ view (Model { games, error }) =
 
                 _ ->
                     viewGamesList games
+
+
+linkEvent : Int -> String -> Html msg
+linkEvent eventID str =
+    a
+        [ href <| "#event/" ++ toString eventID
+        ]
+        [ text str ]

@@ -1,7 +1,8 @@
 module Market exposing (..)
 
-import Html exposing (Html, Attribute, text, span, div, table, td, tr, th, h3, tbody)
-import Html.Attributes as Attr exposing (class, colspan)
+import Html exposing (Html, Attribute, text, span, div, table, td, tr, th, h3, tbody, a)
+import Html.Attributes as Attr exposing (class, colspan, href, style, attribute)
+import Html.Events exposing (onClick)
 
 
 --import Http
@@ -23,7 +24,7 @@ type alias Model =
 
 
 type Msg
-    = ToggleCollapse Int
+    = ToggleCollapse
 
 
 init : Location -> Aping.Market -> ( Model, Cmd Msg )
@@ -38,39 +39,75 @@ init location market =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
-        ToggleCollapse id ->
+        ToggleCollapse ->
             { m
-                | isExpanded =
-                    if id == m.market.id then
-                        not m.isExpanded
-                    else
-                        m.isExpanded
+                | isExpanded = not m.isExpanded
             }
                 ! []
 
 
 view : Model -> Html Msg
-view { market } =
+view { market, isExpanded } =
     let
         runners =
-            market.runners
-                |> List.map
-                    (\{ name, id } ->
-                        tr
-                            []
-                            [ td [] [ text name ]
-                            ]
-                    )
-                |> tbody []
-                |> List.singleton
-                |> table [ class "panel-body" ]
+            if isExpanded then
+                market.runners
+                    |> List.map
+                        (\{ name, id } ->
+                            tr
+                                []
+                                [ td [] [ text name ]
+                                ]
+                        )
+                    |> tbody []
+                    |> List.singleton
+                    |> table []
+                    |> List.singleton
+                    |> div [ class "panel-body" ]
+                    |> List.singleton
+            else
+                []
+
+        marketName =
+            td
+                [ attribute "width" "100%" ]
+                [ span [ class "caret" ] []
+                , span [ style [ ( "margin-left", "5px" ) ] ] [ text market.name ]
+                ]
+
+        totalMatched =
+            round <| market.totalMatched
+
+        head1 =
+            if totalMatched /= 0 then
+                [ marketName
+                , td
+                    [ style [ ( "color", "yellow" ) ]
+                    ]
+                    [ text <| (toString totalMatched) ++ "$"
+                    ]
+                ]
+            else
+                [ marketName ]
+
+        heading =
+            div
+                [ class <|
+                    "panel-heading "
+                        ++ (if isExpanded then
+                                "dropup"
+                            else
+                                "dropdown"
+                           )
+                , onClick ToggleCollapse
+                , style [ ( "cursor", "pointer" ) ]
+                , attribute "width" "100%"
+                ]
+                [ table
+                    [ attribute "width" "100%" ]
+                    [ tbody [] [ tr [] head1 ] ]
+                ]
     in
         div
             [ class "panel panel-primary" ]
-            [ div
-                [ class "panel-heading" ]
-                [ text market.name ]
-            , div
-                [ class "panel-body" ]
-                [ runners ]
-            ]
+            ([ heading ] ++ runners)

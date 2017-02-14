@@ -9,6 +9,7 @@ import Routing
 import Content
 import Msg exposing (Msg)
 import View.Container
+import Sports as MSports
 
 
 main : Program { sports : List Aping.Sport, time : Time } Model Msg
@@ -27,23 +28,25 @@ main =
 
 type alias Model =
     { content : Content.Model
-    , sports : List Aping.Sport
+    , sports : MSports.Model
     , location : Navigation.Location
-    , time : Time
     }
 
 
 init :
-    { a | sports : List Aping.Sport, time : Time }
+    { a | sports : List Aping.Sport }
     -> Navigation.Location
     -> ( Model, Cmd Msg )
-init { sports, time } location =
-    { content = Content.football location
-    , sports = sports
-    , location = location
-    , time = time
-    }
-        ! []
+init { sports } location =
+    let
+        ( msports, cmdSports ) =
+            MSports.init location
+    in
+        { content = Content.football location
+        , sports = msports
+        , location = location
+        }
+            ! [ Cmd.map Msg.Sports cmdSports ]
 
 
 
@@ -53,9 +56,6 @@ init { sports, time } location =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Msg.Tick time ->
-            { model | time = time } ! []
-
         Msg.UrlChange url ->
             let
                 currentRoute =
@@ -69,6 +69,13 @@ update msg model =
                     model ! []
                 else
                     navigate newRoute model
+
+        Msg.Sports msg ->
+            let
+                ( sports, cmdsports ) =
+                    MSports.update msg model.sports
+            in
+                { model | sports = sports } ! [ Cmd.map Msg.Sports cmdsports ]
 
         msg ->
             let
@@ -89,9 +96,11 @@ navigate newRoute model =
                 Routing.Sport sportID ->
                     Content.sport
                         { location = model.location
-                        , sport = Aping.getSportByID sportID model.sports
-                        , time = model.time
+                        , sport = Aping.getSportByID sportID model.sports.sports
                         }
+
+                Routing.Event eventID ->
+                    Content.event model.location eventID
     in
         { model | content = content } ! [ cmd ]
 
@@ -103,7 +112,6 @@ navigate newRoute model =
 subscriptions : Model -> Sub Msg
 subscriptions { content } =
     [ Content.subscriptions content
-    , Time.every Time.second Msg.Tick
     ]
         |> Sub.batch
 
@@ -132,4 +140,6 @@ view { content, sports } =
           }
         ]
         []
-        (Content.view sports content)
+        [ MSports.view (Content.sportID content) sports
+        , Content.view sports.sports content
+        ]

@@ -3,22 +3,54 @@ module View.SportTable exposing (config)
 import Table exposing (defaultCustomizations)
 import Aping exposing (eventTeams)
 import Date
-import Html exposing (Html, text)
-import Html.Attributes exposing (class, colspan)
+import Html exposing (Html, text, a)
+import Html.Attributes exposing (class, colspan, href)
 import DateUtils
 
 
-columnOpenDate : Table.Column { a | openDate : Date.Date, country : String } msg
+linkEvent : Int -> String -> Html msg
+linkEvent eventID str =
+    a
+        [ href <| "#event/" ++ toString eventID
+        ]
+        [ text str ]
+
+
+columnOpenDate : Table.Column Aping.Event msg
 columnOpenDate =
     Table.customColumn
         { name = "Дата открытия"
-        , viewData = (.openDate >> DateUtils.formatDate1)
+        , viewData =
+            (\{ openDate } ->
+                DateUtils.formatDate1 openDate
+            )
         , sorter =
             Table.increasingOrDecreasingBy (.openDate >> Date.toTime)
         }
 
 
-columnCountry : Table.Column { a | openDate : Date.Date, country : String } msg
+columnTime : Table.Column Aping.Event msg
+columnTime =
+    Table.customColumn
+        { name = "Время"
+        , viewData =
+            (\{ openDate, timezone } ->
+                DateUtils.formatTime1 openDate ++ ", " ++ timezone
+            )
+        , sorter = Table.unsortable
+        }
+
+
+columnVenue : Table.Column Aping.Event msg
+columnVenue =
+    Table.customColumn
+        { name = "-"
+        , viewData = .venue
+        , sorter = Table.unsortable
+        }
+
+
+columnCountry : Table.Column Aping.Event msg
 columnCountry =
     Table.customColumn
         { name = "Страна"
@@ -31,7 +63,7 @@ columnCountry =
         }
 
 
-columnHome : Table.Column { a | name : String } msg
+columnHome : Table.Column Aping.Event msg
 columnHome =
     Table.veryCustomColumn
         { name = "Событие"
@@ -43,22 +75,22 @@ columnHome =
                         |> Maybe.withDefault name
                 )
         , viewData =
-            (\{ name } ->
-                case eventTeams name of
+            (\event ->
+                case eventTeams event.name of
                     Just ( s, _ ) ->
-                        { children = [ text s ]
+                        { children = [ linkEvent event.id s ]
                         , attributes = []
                         }
 
                     _ ->
-                        { children = [ text name ]
+                        { children = [ linkEvent event.id event.name ]
                         , attributes = [ colspan 2 ]
                         }
             )
         }
 
 
-columnAway : Table.Column { a | name : String } msg
+columnAway : Table.Column Aping.Event msg
 columnAway =
     Table.veryCustomColumn
         { name = "В гостях"
@@ -70,10 +102,10 @@ columnAway =
                         |> Maybe.withDefault ""
                 )
         , viewData =
-            (\{ name } ->
-                case eventTeams name of
+            (\event ->
+                case eventTeams event.name of
                     Just ( _, s ) ->
-                        { children = [ text s ]
+                        { children = [ linkEvent event.id s ]
                         , attributes = []
                         }
 
@@ -92,9 +124,11 @@ config toMsg =
         , toMsg = toMsg
         , columns =
             [ columnOpenDate
+            , columnTime
             , columnCountry
             , columnHome
             , columnAway
+            , columnVenue
             ]
         , customizations =
             { defaultCustomizations
