@@ -81,11 +81,16 @@ type Msg
     = MsgReplyFromServer (Result String ReplyFromServer)
 
 
-type alias ReplyFromServer =
+type alias GameListUpdates =
     { inplay : List Game
     , outplay : List Int
     , changes : List GameCahnges
-    , hashCode : String
+    }
+
+
+type alias ReplyFromServer =
+    { changes : GameListUpdates
+    , hashCode : Int
     }
 
 
@@ -103,10 +108,10 @@ update msg (Model m) =
         MsgReplyFromServer (Ok replyFromServer) ->
             let
                 games =
-                    updateGamesList replyFromServer m.games
+                    updateGamesList replyFromServer.changes m.games
 
                 answer =
-                    WebSocket.send (websocketURL m) replyFromServer.hashCode
+                    WebSocket.send (websocketURL m) (toString replyFromServer.hashCode)
             in
                 Model { m | games = games, error = Nothing } ! [ answer ]
 
@@ -129,7 +134,7 @@ updateGame x { page, order, time, result, win1, win2, draw1, draw2, lose1, lose2
     }
 
 
-updateGamesList : ReplyFromServer -> List Game -> List Game
+updateGamesList : GameListUpdates -> List Game -> List Game
 updateGamesList { inplay, outplay, changes } games =
     let
         outplaySet =
@@ -231,14 +236,21 @@ decoderGameCahnges =
         |> optional "lose2" decoderMaybeFloat Nothing
 
 
+decoderGameListUpdates : Decoder GameListUpdates
+decoderGameListUpdates =
+    decode
+        GameListUpdates
+        |> optional "inplay" (D.list decoderGame) []
+        |> optional "outplay" (D.list D.int) []
+        |> optional "game_changes" (D.list decoderGameCahnges) []
+
+
 decoderReplyFromServer : Decoder ReplyFromServer
 decoderReplyFromServer =
     decode
         ReplyFromServer
-        |> optional "inplay" (D.list decoderGame) []
-        |> optional "outplay" (D.list D.int) []
-        |> optional "game_changes" (D.list decoderGameCahnges) []
-        |> required "hash_code" D.string
+        |> required "changes" decoderGameListUpdates
+        |> required "hash_code" D.int
 
 
 
