@@ -111,9 +111,7 @@ navigate newRoute model =
 
 subscriptions : Model -> Sub Msg
 subscriptions { content } =
-    [ Content.subscriptions content
-    ]
-        |> Sub.batch
+    Content.subscriptions content
 
 
 

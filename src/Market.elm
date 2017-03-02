@@ -24,7 +24,7 @@ type alias Model =
 
 
 type Msg
-    = ToggleCollapse
+    = ToggleCollapse String Bool
 
 
 init : Location -> Aping.Market -> ( Model, Cmd Msg )
@@ -39,7 +39,7 @@ init location market =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
-        ToggleCollapse ->
+        ToggleCollapse _ _ ->
             { m
                 | isExpanded = not m.isExpanded
             }
@@ -99,7 +99,7 @@ view { market, isExpanded } =
                             else
                                 "dropdown"
                            )
-                , onClick ToggleCollapse
+                , onClick (ToggleCollapse market.id (not isExpanded))
                 , style [ ( "cursor", "pointer" ) ]
                 , attribute "width" "100%"
                 ]

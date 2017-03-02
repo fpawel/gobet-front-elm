@@ -2,14 +2,17 @@ module Event exposing (..)
 
 import Html exposing (Html, Attribute, text, span, div, table, td, tr, th, h3, h1, tbody)
 import Html.Attributes as Attr exposing (class, colspan, rowspan, attribute, style)
-import Http
-import Json.Decode
+import Json.Decode as D exposing (Decoder)
+import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
+import Json.Encode as E exposing (object, encode)
 import Navigation exposing (Location)
 import Aping
 import Aping.Decoder
 import Market
 import DateUtils
 import Help.Component exposing (spinner_text)
+import WebSocket
+import Help.Utils
 
 
 -- MODEL
@@ -20,12 +23,25 @@ type alias Model =
     , event : Maybe Aping.Event
     , markets : List Market.Model
     , location : Location
+    , sessionID : String
     }
 
 
 type Msg
-    = ApingEvent (Result String Aping.Event)
+    = MsgWebsocket (Result String WebsocketBatch)
     | MsgMarket String Market.Msg
+
+
+type WebsocketData
+    = WebsocketEvent Aping.Event
+    | WebsocketPrices (List Aping.Market)
+    | WebsocketSessionID String
+
+
+type alias WebsocketBatch =
+    { data : WebsocketData
+    , hashCode : String
+    }
 
 
 init : Location -> Int -> ( Model, Cmd Msg )
@@ -34,22 +50,9 @@ init location eventID =
     , event = Nothing
     , markets = []
     , location = location
+    , sessionID = ""
     }
-        ! [ httpRequestEvent location eventID ]
-
-
-httpRequestEvent : Location -> Int -> Cmd Msg
-httpRequestEvent location eventID =
-    let
-        eventURL =
-            location.protocol ++ "//" ++ location.host ++ "/event/" ++ toString eventID
-
-        decoder =
-            Aping.Decoder.event
-                |> Json.Decode.field "ok"
-    in
-        Http.get eventURL decoder
-            |> Http.send (Result.mapError toString >> ApingEvent)
+        ! []
 
 
 
@@ -61,7 +64,7 @@ update msg m =
     case msg of
         MsgMarket id msgMarket ->
             let
-                ( markets, cmds ) =
+                ( markets, cmds_markets ) =
                     m.markets
                         |> List.map
                             (\mmarket ->
@@ -75,32 +78,67 @@ update msg m =
                                     mmarket_ ! [ Cmd.map (MsgMarket mmarket.market.id) cmd ]
                             )
                         |> List.unzip
+
+                cmds =
+                    case msgMarket of
+                        Market.ToggleCollapse marketID isExpanded ->
+                            let
+                                url =
+                                    Help.Utils.websocketURL m.location
+                                        ++ "/wsprices-markets/"
+                                        ++ m.sessionID
+
+                                cmd =
+                                    [ ( "market_id", E.string marketID )
+                                    , ( "include", E.bool isExpanded )
+                                    ]
+                                        |> object
+                                        |> encode 0
+                                        |> WebSocket.send url
+                            in
+                                cmd :: cmds_markets
             in
                 { m | markets = markets } ! cmds
 
-        ApingEvent (Ok event) ->
-            let
-                ( markets_, cmds ) =
-                    event.markets
-                        |> chooseMarkets
-                        |> List.map
-                            (\market ->
-                                let
-                                    ( mmarket_, cmd ) =
-                                        Market.init m.location market
-                                in
-                                    mmarket_ ! [ Cmd.map (MsgMarket market.id) cmd ]
-                            )
-                        |> List.unzip
-            in
-                { m | event = Just event, markets = markets_ } ! cmds
+        MsgWebsocket (Ok { data, hashCode }) ->
+            case data of
+                WebsocketEvent event ->
+                    let
+                        ( markets_, cmds ) =
+                            event.markets
+                                |> chooseMarkets
+                                |> List.map
+                                    (\market ->
+                                        let
+                                            ( mmarket_, cmd ) =
+                                                Market.init m.location market
+                                        in
+                                            mmarket_ ! [ Cmd.map (MsgMarket market.id) cmd ]
+                                    )
+                                |> List.unzip
+                    in
+                        { m | event = Just event, markets = markets_ }
+                            ! ((answerHashcode hashCode m) :: cmds)
 
-        ApingEvent (Err error) ->
+                WebsocketPrices markets ->
+                    m ! [ answerHashcode hashCode m ]
+
+                WebsocketSessionID sessionID ->
+                    { m | sessionID = sessionID } ! [ answerHashcode hashCode m ]
+
+        MsgWebsocket (Err error) ->
             let
                 _ =
                     Debug.log ("EVENT " ++ toString m.eventID ++ " error") error
             in
                 m ! []
+
+
+answerHashcode : String -> Model -> Cmd Msg
+answerHashcode hashCode m =
+    WebSocket.send
+        (websocketURLPrices m.location m.eventID)
+        hashCode
 
 
 chooseMarkets : List Aping.Market -> List Aping.Market
@@ -183,9 +221,52 @@ view { event, markets } =
 
 
 
+-- DECODE
+
+
+decoderWebsocketEvent : Decoder WebsocketData
+decoderWebsocketEvent =
+    decode WebsocketEvent
+        |> required "event" Aping.Decoder.event
+
+
+decoderWebsocketPrices : Decoder WebsocketData
+decoderWebsocketPrices =
+    decode WebsocketPrices
+        |> required "markets" (D.list Aping.Decoder.market)
+
+
+decoderWebsocketSessionID : Decoder WebsocketData
+decoderWebsocketSessionID =
+    decode WebsocketSessionID
+        |> required "session_id" D.string
+
+
+decoderWebsocket : Decoder WebsocketBatch
+decoderWebsocket =
+    decode WebsocketBatch
+        |> required "ok"
+            (D.oneOf
+                [ decoderWebsocketEvent
+                , decoderWebsocketPrices
+                , decoderWebsocketSessionID
+                ]
+            )
+        |> required "hash_code" D.string
+
+
+
 -- SUBSCRIPTINS
 
 
+websocketURLPrices : Navigation.Location -> Int -> String
+websocketURLPrices location eventID =
+    Help.Utils.websocketURL location ++ "/wsprices/" ++ toString eventID
+
+
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
+subscriptions { eventID, location } =
+    WebSocket.listen
+        (websocketURLPrices location eventID)
+        (D.decodeString decoderWebsocket)
+        |> Sub.map MsgWebsocket

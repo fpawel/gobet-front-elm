@@ -15,7 +15,6 @@ import Set exposing (Set)
 import Navigation exposing (Location)
 import Json.Decode as D exposing (Decoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
-import Json.Encode as E exposing (object)
 import Html exposing (Html, Attribute, span, div, table, td, tr, th, h3, a, text)
 import Html.Attributes as Attr exposing (class, href)
 import Help.Utils exposing (isJust)
@@ -90,7 +89,7 @@ type alias GameListUpdates =
 
 type alias ReplyFromServer =
     { changes : GameListUpdates
-    , hashCode : Int
+    , hashCode : String
     }
 
 
@@ -111,7 +110,7 @@ update msg (Model m) =
                     updateGamesList replyFromServer.changes m.games
 
                 answer =
-                    WebSocket.send (websocketURL m) (toString replyFromServer.hashCode)
+                    WebSocket.send (websocketURL m) replyFromServer.hashCode
             in
                 Model { m | games = games, error = Nothing } ! [ answer ]
 
@@ -250,37 +249,7 @@ decoderReplyFromServer =
     decode
         ReplyFromServer
         |> required "changes" decoderGameListUpdates
-        |> required "hash_code" D.int
-
-
-
--- ENCODE
-
-
-encodeGame : Game -> E.Value
-encodeGame x =
-    let
-        encodedOdds =
-            [ ( "win1", x.win1 )
-            , ( "win2", x.win2 )
-            , ( "draw1", x.draw1 )
-            , ( "draw2", x.draw2 )
-            , ( "lose1", x.lose1 )
-            , ( "lose2", x.lose2 )
-            ]
-                |> List.filterMap
-                    (\( k, v ) ->
-                        v |> Maybe.map (\v -> ( k, E.float v ))
-                    )
-    in
-        [ ( "event_id", E.int x.eventID )
-        , ( "page", E.int x.page )
-        , ( "order", E.int x.order )
-        , ( "time", E.string x.time )
-        , ( "result", E.string x.result )
-        ]
-            ++ encodedOdds
-            |> object
+        |> required "hash_code" D.string
 
 
 
