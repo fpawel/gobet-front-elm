@@ -12,7 +12,7 @@ import Market
 import DateUtils
 import Help.Component exposing (spinner_text)
 import WebSocket
-import Help.Utils
+import Help.Utils exposing (websocketURL)
 
 
 -- MODEL
@@ -30,11 +30,12 @@ type alias Model =
 type Msg
     = MsgWebsocket (Result String WebsocketBatch)
     | MsgMarket String Market.Msg
+    | NoOp String
 
 
 type WebsocketData
     = WebsocketEvent Aping.Event
-    | WebsocketPrices (List Aping.Market)
+    | WebsocketMarket Aping.Market
     | WebsocketSessionID String
 
 
@@ -84,9 +85,7 @@ update msg m =
                         Market.ToggleCollapse marketID isExpanded ->
                             let
                                 url =
-                                    Help.Utils.websocketURL m.location
-                                        ++ "/wsprices-markets/"
-                                        ++ m.sessionID
+                                    websocketURL m.location ++ "/wsprices-markets/" ++ m.sessionID
 
                                 cmd =
                                     [ ( "market_id", E.string marketID )
@@ -120,7 +119,7 @@ update msg m =
                         { m | event = Just event, markets = markets_ }
                             ! ((answerHashcode hashCode m) :: cmds)
 
-                WebsocketPrices markets ->
+                WebsocketMarket market ->
                     m ! [ answerHashcode hashCode m ]
 
                 WebsocketSessionID sessionID ->
@@ -132,6 +131,9 @@ update msg m =
                     Debug.log ("EVENT " ++ toString m.eventID ++ " error") error
             in
                 m ! []
+
+        NoOp _ ->
+            m ! []
 
 
 answerHashcode : String -> Model -> Cmd Msg
@@ -230,10 +232,10 @@ decoderWebsocketEvent =
         |> required "event" Aping.Decoder.event
 
 
-decoderWebsocketPrices : Decoder WebsocketData
-decoderWebsocketPrices =
-    decode WebsocketPrices
-        |> required "markets" (D.list Aping.Decoder.market)
+decoderWebsocketMarket : Decoder WebsocketData
+decoderWebsocketMarket =
+    decode WebsocketMarket
+        |> required "market" Aping.Decoder.market
 
 
 decoderWebsocketSessionID : Decoder WebsocketData
@@ -248,7 +250,7 @@ decoderWebsocket =
         |> required "ok"
             (D.oneOf
                 [ decoderWebsocketEvent
-                , decoderWebsocketPrices
+                , decoderWebsocketMarket
                 , decoderWebsocketSessionID
                 ]
             )
@@ -265,8 +267,22 @@ websocketURLPrices location eventID =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { eventID, location } =
-    WebSocket.listen
-        (websocketURLPrices location eventID)
-        (D.decodeString decoderWebsocket)
-        |> Sub.map MsgWebsocket
+subscriptions { eventID, location, sessionID } =
+    let
+        wsprices =
+            WebSocket.listen
+                (websocketURLPrices location eventID)
+                (D.decodeString decoderWebsocket)
+                |> Sub.map MsgWebsocket
+
+        subs =
+            if sessionID == "" then
+                [ wsprices ]
+            else
+                [ wsprices
+                , WebSocket.listen
+                    (websocketURL location ++ "/wsprices-markets/" ++ sessionID)
+                    NoOp
+                ]
+    in
+        Sub.batch subs

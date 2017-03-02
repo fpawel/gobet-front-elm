@@ -59,14 +59,14 @@ runner : Decoder Runner
 runner =
     decode Runner
         |> required "selectionId" D.int
-        |> required "runnerName" D.string
+        |> optional "runnerName" D.string ""
 
 
 market : Decoder Aping.Market
 market =
     decode Aping.Market
         |> required "marketId" D.string
-        |> required "marketName" D.string
+        |> optional "marketName" D.string ""
         |> optional "totalMatched" D.float 0
         |> optional "runners" (D.list runner) []
         |> optional "competition" D.string ""
