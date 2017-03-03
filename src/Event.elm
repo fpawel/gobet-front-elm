@@ -13,6 +13,7 @@ import DateUtils
 import Help.Component exposing (spinner_text)
 import WebSocket
 import Help.Utils exposing (websocketURL)
+import Prices
 
 
 -- MODEL
@@ -35,7 +36,7 @@ type Msg
 
 type WebsocketData
     = WebsocketEvent Aping.Event
-    | WebsocketMarket Aping.Market
+    | WebsocketPricesMarket Prices.Market
     | WebsocketSessionID String
 
 
@@ -119,7 +120,7 @@ update msg m =
                         { m | event = Just event, markets = markets_ }
                             ! ((answerHashcode hashCode m) :: cmds)
 
-                WebsocketMarket market ->
+                WebsocketPricesMarket market ->
                     m ! [ answerHashcode hashCode m ]
 
                 WebsocketSessionID sessionID ->
@@ -232,10 +233,10 @@ decoderWebsocketEvent =
         |> required "event" Aping.Decoder.event
 
 
-decoderWebsocketMarket : Decoder WebsocketData
-decoderWebsocketMarket =
-    decode WebsocketMarket
-        |> required "market" Aping.Decoder.market
+decoderWebsocketPricesMarket : Decoder WebsocketData
+decoderWebsocketPricesMarket =
+    decode WebsocketPricesMarket
+        |> required "market" Prices.decoderMarket
 
 
 decoderWebsocketSessionID : Decoder WebsocketData
@@ -250,7 +251,7 @@ decoderWebsocket =
         |> required "ok"
             (D.oneOf
                 [ decoderWebsocketEvent
-                , decoderWebsocketMarket
+                , decoderWebsocketPricesMarket
                 , decoderWebsocketSessionID
                 ]
             )

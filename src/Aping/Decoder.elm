@@ -68,5 +68,6 @@ market =
         |> required "marketId" D.string
         |> optional "marketName" D.string ""
         |> optional "totalMatched" D.float 0
+        |> optional "totalAvailable" D.float 0
         |> optional "runners" (D.list runner) []
         |> optional "competition" D.string ""

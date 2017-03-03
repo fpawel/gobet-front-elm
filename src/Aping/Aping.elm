@@ -27,6 +27,7 @@ type alias Market =
     { id : String
     , name : String
     , totalMatched : Float
+    , totalAvailable : Float
     , runners : List Runner
     , competition : String
     }
