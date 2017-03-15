@@ -14,7 +14,7 @@ import Sports as MSports
 
 main : Program { sports : List Aping.Sport, time : Time } Model Msg
 main =
-    Navigation.programWithFlags Msg.UrlChange
+    Navigation.programWithFlags Msg.OnLocationChanged
         { init = init
         , view = view
         , update = update
@@ -56,7 +56,7 @@ init { sports } location =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Msg.UrlChange url ->
+        Msg.OnLocationChanged url ->
             let
                 currentRoute =
                     Content.route model.content

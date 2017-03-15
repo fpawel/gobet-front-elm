@@ -61,7 +61,7 @@ type alias MaybeMaybeFloat =
     Maybe (Maybe Float)
 
 
-type alias GameCahnges =
+type alias GameUpdates =
     { eventID : Int
     , page : Maybe Int
     , order : Maybe Int
@@ -77,17 +77,17 @@ type alias GameCahnges =
 
 
 type Msg
-    = MsgReplyFromServer (Result String ReplyFromServer)
+    = OnWebData (Result String WebData)
 
 
 type alias GameListUpdates =
     { inplay : List Game
     , outplay : List Int
-    , changes : List GameCahnges
+    , changes : List GameUpdates
     }
 
 
-type alias ReplyFromServer =
+type alias WebData =
     { changes : GameListUpdates
     , hashCode : String
     }
@@ -101,10 +101,10 @@ init location =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg (Model m) =
     case msg of
-        MsgReplyFromServer (Err error) ->
+        OnWebData (Err error) ->
             Model { m | error = Just <| Debug.log "FOOTBAL error" error } ! []
 
-        MsgReplyFromServer (Ok replyFromServer) ->
+        OnWebData (Ok replyFromServer) ->
             let
                 games =
                     updateGamesList replyFromServer.changes m.games
@@ -115,7 +115,7 @@ update msg (Model m) =
                 Model { m | games = games, error = Nothing } ! [ answer ]
 
 
-updateGame : Game -> GameCahnges -> Game
+updateGame : Game -> GameUpdates -> Game
 updateGame x { page, order, time, result, win1, win2, draw1, draw2, lose1, lose2 } =
     { x
         | page = Maybe.withDefault x.page page
@@ -182,8 +182,8 @@ subscriptions : Model -> Sub Msg
 subscriptions (Model m) =
     WebSocket.listen
         (websocketURL m)
-        (D.decodeString decoderReplyFromServer
-            >> MsgReplyFromServer
+        (D.decodeString decoderWebData
+            >> OnWebData
         )
 
 
@@ -219,9 +219,9 @@ decoderMaybeFloat =
     (D.maybe (D.maybe D.float))
 
 
-decoderGameCahnges : Decoder GameCahnges
+decoderGameCahnges : Decoder GameUpdates
 decoderGameCahnges =
-    decode GameCahnges
+    decode GameUpdates
         |> required "event_id" D.int
         |> optional "page" (D.maybe D.int) Nothing
         |> optional "order" (D.maybe D.int) Nothing
@@ -244,10 +244,10 @@ decoderGameListUpdates =
         |> optional "game_changes" (D.list decoderGameCahnges) []
 
 
-decoderReplyFromServer : Decoder ReplyFromServer
-decoderReplyFromServer =
+decoderWebData : Decoder WebData
+decoderWebData =
     decode
-        ReplyFromServer
+        WebData
         |> required "changes" decoderGameListUpdates
         |> required "hash_code" D.string
 

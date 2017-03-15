@@ -14,32 +14,6 @@ type Route
     | Football
 
 
-
-{--
-event : Parser (Route -> b) b
-event =
-    custom "APING_SPORTID_EVENTID" <|
-        \tipe ->
-            case find (AtMost 1) (regex "(\\d+)-(\\d+)") tipe of
-                [ { submatches } ] ->
-                    case submatches of
-                        [ Just strSportIDPart, Just strEventIDPart ] ->
-                            case ( toInt strSportIDPart, toInt strEventIDPart ) of
-                                ( Ok sportID, Ok eventID ) ->
-                                    Ok <| Event sportID eventID
-
-                                x ->
-                                    Err <| "not int's: " ++ toString x
-
-                        x ->
-                            Err <| "wrong submatches: " ++ toString x
-
-                _ ->
-                    Err "not matches with `event` pattern `(\\d+)-(\\d+)`"
-
--}
-
-
 parser : Parser (Route -> a) a
 parser =
     oneOf

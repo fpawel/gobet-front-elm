@@ -12,4 +12,4 @@ type Msg
     | Sport MSport.Msg
     | Event MEvent.Msg
     | Football MFootball.Msg
-    | UrlChange Navigation.Location
+    | OnLocationChanged Navigation.Location

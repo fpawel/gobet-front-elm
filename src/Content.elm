@@ -47,7 +47,9 @@ event : Location -> Int -> ( Model, Cmd Msg )
 event location eventID =
     let
         ( model_event, cmd_event ) =
-            MEvent.init location eventID
+            MEvent.init
+                location
+                eventID
     in
         Event model_event ! [ Cmd.map Msg.Event cmd_event ]
 
