@@ -1,4 +1,4 @@
-module View.Container exposing (ConfigNav, ConfigDropNav, view)
+module View.AppContainer exposing (ConfigNav, ConfigDropNav, view)
 
 import Html exposing (Html, Attribute, button, ul, li, h1, h3, span, div, nav)
 import Html.Attributes exposing (class, classList, href, style, attribute)

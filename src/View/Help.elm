@@ -1,4 +1,4 @@
-module Help.Component exposing (..)
+module View.Help exposing (..)
 
 import Html.Attributes exposing (class, href, style, attribute)
 import Html
@@ -22,8 +22,8 @@ import Html
         )
 
 
-spinner_text : String -> Html msg
-spinner_text text =
+spinnerText : String -> Html msg
+spinnerText text =
     div
         [ class "w3-display-container", style [ ( "height", "200px" ) ] ]
         [ div

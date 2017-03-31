@@ -1,4 +1,4 @@
-module Football
+module FootballX
     exposing
         ( Model
         , Msg

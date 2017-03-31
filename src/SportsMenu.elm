@@ -1,4 +1,4 @@
-module Sports exposing (Model, Msg, view, init, update)
+module SportsMenu exposing (Model, Msg, view, init, update)
 
 import Aping
 import Html
@@ -26,7 +26,7 @@ type alias Model =
 
 
 type Msg
-    = NewSports (Result String (List Aping.Sport))
+    = OnSportsWebData (Result String (List Aping.Sport))
 
 
 init : Location -> ( Model, Cmd Msg )
@@ -45,7 +45,7 @@ httpRequestSports location =
                 |> Json.Decode.field "ok"
     in
         Http.get url decoder
-            |> Http.send (Result.mapError toString >> NewSports)
+            |> Http.send (Result.mapError toString >> OnSportsWebData)
 
 
 linkSport : Int -> Aping.Sport -> Html a
@@ -59,16 +59,16 @@ linkSport sportID { name, id } =
 
         isActive =
             sportID == id
+
+        link_ =
+            if isActive then
+                a [ href_ ] [ text_ ]
+            else
+                text_
     in
         li
             [ classList [ ( "active", isActive ) ] ]
-            [ a [ href_ ]
-                [ if isActive then
-                    a [ href_ ] [ text_ ]
-                  else
-                    text_
-                ]
-            ]
+            [ a [ href_ ] [ link_ ] ]
 
 
 
@@ -78,10 +78,10 @@ linkSport sportID { name, id } =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
-        NewSports (Ok sports) ->
+        OnSportsWebData (Ok sports) ->
             { m | sports = sports } ! []
 
-        NewSports (Err error) ->
+        OnSportsWebData (Err error) ->
             let
                 _ =
                     Debug.log "SPORTS error" error

@@ -1,20 +1,19 @@
 port module Main exposing (..)
 
 import Html exposing (Html)
-import Time exposing (Time)
 import Navigation
 import UrlParser exposing ((</>), parseHash)
-import Aping exposing (Event)
+import Data.Aping exposing (Event)
 import Routing
 import Content
 import Msg exposing (Msg)
 import View.Container
-import Sports as MSports
+import SportsMenu
 
 
-main : Program { sports : List Aping.Sport, time : Time } Model Msg
+main : Program Never Model Msg
 main =
-    Navigation.programWithFlags Msg.OnLocationChanged
+    Navigation.program Msg.OnLocationChanged
         { init = init
         , view = view
         , update = update
@@ -28,25 +27,24 @@ main =
 
 type alias Model =
     { content : Content.Model
-    , sports : MSports.Model
+    , sportsMenu : SportsMenu.Model
     , location : Navigation.Location
     }
 
 
 init :
-    { a | sports : List Aping.Sport }
-    -> Navigation.Location
+    Navigation.Location
     -> ( Model, Cmd Msg )
-init { sports } location =
+init location =
     let
         ( msports, cmdSports ) =
-            MSports.init location
+            SportsMenu.init location
     in
         { content = Content.football location
-        , sports = msports
+        , sportsMenu = msports
         , location = location
         }
-            ! [ Cmd.map Msg.Sports cmdSports ]
+            ! [ Cmd.map Msg.SportsMenu cmdSports ]
 
 
 
@@ -70,12 +68,12 @@ update msg model =
                 else
                     navigate newRoute model
 
-        Msg.Sports msg ->
+        Msg.SportsMenu msg ->
             let
-                ( sports, cmdsports ) =
-                    MSports.update msg model.sports
+                ( nextSportsMenu, cmdsports ) =
+                    SportsMenu.update msg model.sportsMenu
             in
-                { model | sports = sports } ! [ Cmd.map Msg.Sports cmdsports ]
+                { model | sportsMenu = nextSportsMenu } ! [ Cmd.map Msg.SportsMenu cmdsports ]
 
         msg ->
             let
@@ -96,7 +94,7 @@ navigate newRoute model =
                 Routing.Sport sportID ->
                     Content.sport
                         { location = model.location
-                        , sport = Aping.getSportByID sportID model.sports.sports
+                        , sport = Aping.getSportByID sportID model.sportsMenu.sports
                         }
 
                 Routing.Event eventID ->
@@ -120,7 +118,7 @@ subscriptions { content } =
 
 
 view : Model -> Html Msg
-view { content, sports } =
+view { content, sportsMenu } =
     View.Container.view
         [ { name = "Футбол"
           , active = Content.route content == Routing.Football
@@ -138,6 +136,6 @@ view { content, sports } =
           }
         ]
         []
-        [ MSports.view (Content.sportID content) sports
-        , Content.view sports.sports content
+        [ SportsMenu.view (Content.sportID content) sportsMenu
+        , Content.view sportsMenu.sports content
         ]

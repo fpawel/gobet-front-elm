@@ -1,6 +1,7 @@
 module Routing exposing (..)
 
 import UrlParser exposing (Parser, map, (<?>), (</>), s, int, string, parseHash, oneOf, custom)
+import Navigation exposing (Location)
 
 
 --import Regex exposing (HowMany(..), find, regex)
@@ -14,10 +15,13 @@ type Route
     | Football
 
 
-parser : Parser (Route -> a) a
-parser =
-    oneOf
-        [ map Sport (s "sport" </> int)
-        , map Football (s "football")
-        , map Event (s "event" </> int)
-        ]
+parse : Location -> Route
+parse =
+    parseHash
+        (oneOf
+            [ map Sport (s "sport" </> int)
+            , map Football (s "football")
+            , map Event (s "event" </> int)
+            ]
+        )
+        >> Maybe.withDefault Football

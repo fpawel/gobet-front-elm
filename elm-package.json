@@ -4,12 +4,15 @@
     "repository": "https://github.com/fpawel/gobet-front.git",
     "license": "BSD3",
     "source-directories": [
-        "src",
         "src/DateUtils",
+        "src/Data",
+        "src/Data/Aping",
+        "src/Data/Football",
         "src/View",
         "src/Aping",
         "src/Help",
-        "src/Styles"
+        "src/Styles",
+        "src"
     ],
     "exposed-modules": [],
     "dependencies": {

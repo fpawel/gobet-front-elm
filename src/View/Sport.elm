@@ -1,11 +1,43 @@
-module View.SportTable exposing (config)
+module View.Sport exposing (view)
 
+import Html exposing (..)
+import Html.Attributes exposing (..)
+import Data.Aping exposing (Event, eventTeams)
+import App exposing (Model)
+import View.Help exposing (spinnerText)
 import Table exposing (defaultCustomizations)
-import Data.Aping exposing (eventTeams, Event)
-import Date
-import Html exposing (Html, text, a)
-import Html.Attributes exposing (class, colspan, href)
 import DateUtils
+import Date
+import Dict
+import Routing
+import Debug
+
+
+
+-- VIEW
+
+
+view : Model -> Html App.Msg
+view ({ events, route, tableState } as model) =
+    let
+      sportID =
+        case route of
+          Routing.Sport sportID -> sportID
+          _ -> Debug.crash <| "sport for " ++ toString route
+    in
+      thisEvents =
+          
+
+
+    if List.isEmpty events then
+        spinnerText "Подготовка данных..."
+    else
+        Table.view
+            (config App.SportTableState)
+            tableState
+            (Dict.get events)
+
+
 
 
 linkEvent : Int -> String -> Html msg
