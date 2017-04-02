@@ -19,7 +19,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg m =
     case msg of
         LocationChanged nextLocation ->
-            { m | route = Routing.parse nextLocation } ! []
+            locationChanged nextLocation m
 
         FootballWebData webdata ->
             updateFootball webdata m
@@ -28,10 +28,27 @@ update msg m =
             logError error m
 
         SportsWebData sports ->
-            { m | sports = sports } ! []
+            { m | sports = dictID sports } ! []
 
-        EventsWebData sportID newEvents ->
-            { m | events = Dict.insert sportID newEvents m.events } ! []
+        EventsWebData sportID events ->
+            { m
+                | events = Data.Aping.insertEvents m.events (dictID events)
+                , sportEvents = Dict.insert sportID (List.map .id events) m.sportEvents
+            }
+                ! []
+
+        EventWebData event ->
+            { m
+                | events = Dict.insert event.id event m.events
+            }
+                ! []
+
+        ToggleMarket marketID ->
+            { m
+                | events =
+                    Dict.map (\_ -> Data.Aping.toggleMarketExpanded marketID) m.events
+            }
+                ! []
 
         _ ->
             m ! []
@@ -53,6 +70,12 @@ subscriptions m =
 
         _ ->
             Sub.none
+
+
+dictID : List { a | id : comparable } -> Dict comparable { a | id : comparable }
+dictID =
+    List.map (\x -> ( x.id, x ))
+        >> Dict.fromList
 
 
 logError : String -> Model -> ( Model, Cmd msg )

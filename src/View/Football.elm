@@ -2,7 +2,7 @@ module View.Football exposing (view)
 
 import Html exposing (Html, Attribute, span, div, table, td, tr, th, h3, a, text)
 import Html.Attributes as Attr exposing (class, href)
-import Help.Component exposing (spinner_text)
+import View.Help exposing (spinnerText)
 import Styles as CssA
 import Data.Football exposing (Game)
 
@@ -81,7 +81,7 @@ view : List Game -> Html a
 view games =
     case games of
         [] ->
-            spinner_text "Подготовка данных..."
+            spinnerText "Подготовка данных..."
 
         _ ->
             viewGamesList games

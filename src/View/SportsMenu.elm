@@ -14,6 +14,7 @@ import Html.Attributes exposing (class, classList, href, style, attribute, colsp
 import Data.Aping exposing (Sport)
 import Routing exposing (Route)
 import App exposing (Model)
+import Dict
 
 
 -- VIEW
@@ -31,11 +32,15 @@ view ({ route, sports, events } as model) =
                     sportID
 
                 Routing.Event eventID ->
-                    App.getSportOfEventID model eventID
+                    Dict.get eventID sports
+                        |> Maybe.map .id
                         |> Maybe.withDefault 0
 
         sports_ =
-            List.sortBy (\{ market_count } -> market_count * (-1)) sports
+            sports
+                |> Dict.toList
+                |> List.map Tuple.second
+                |> List.sortBy (\{ market_count } -> market_count * (-1))
 
         xs =
             List.drop 6 sports_

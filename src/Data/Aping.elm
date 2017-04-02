@@ -5,6 +5,7 @@ import Regex exposing (..)
 import Json.Decode as D exposing (Decoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
 import Help.CountryCode
+import Dict exposing (Dict)
 
 
 type alias Sport =
@@ -23,6 +24,7 @@ type alias Event =
     , venue : String
     , decoderSport : Sport
     , markets : List Market
+    , sportID : Int
     }
 
 
@@ -33,6 +35,7 @@ type alias Market =
     , totalAvailable : Float
     , runners : List Runner
     , competition : String
+    , isExpanded : Bool
     }
 
 
@@ -60,6 +63,35 @@ eventTeams s =
 
         _ ->
             Nothing
+
+
+insertEvents : Dict Int Event -> Dict Int Event -> Dict Int Event
+insertEvents events newEvents =
+    Dict.merge
+        Dict.insert
+        (\k _ x -> Dict.insert k x)
+        Dict.insert
+        events
+        newEvents
+        Dict.empty
+
+
+toggleMarketExpanded : String -> Event -> Event
+toggleMarketExpanded marketID event =
+    { event
+        | markets =
+            event.markets
+                |> List.map
+                    (\market ->
+                        { market
+                            | isExpanded =
+                                if market.id == marketID then
+                                    not market.isExpanded
+                                else
+                                    market.isExpanded
+                        }
+                    )
+    }
 
 
 
@@ -101,6 +133,7 @@ decoderEvent =
         |> optional "venue" D.string ""
         |> optional "event_type" decoderSport (Sport 0 "" 0)
         |> optional "markets" (D.list decoderMarket) []
+        |> hardcoded 0
 
 
 decoderSport : Decoder Sport
@@ -127,3 +160,4 @@ decoderMarket =
         |> optional "totalAvailable" D.float 0
         |> optional "runners" (D.list decoderRunner) []
         |> optional "competition" D.string ""
+        |> hardcoded False

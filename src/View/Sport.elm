@@ -11,33 +11,31 @@ import Date
 import Dict
 import Routing
 import Debug
-
+import Dict
 
 
 -- VIEW
 
 
 view : Model -> Html App.Msg
-view ({ events, route, tableState } as model) =
+view ({ events, sportEvents, route, sportTableState } as model) =
     let
-      sportID =
-        case route of
-          Routing.Sport sportID -> sportID
-          _ -> Debug.crash <| "sport for " ++ toString route
+        sportID =
+            case route of
+                Routing.Sport sportID ->
+                    sportID
+
+                _ ->
+                    Debug.crash <| "sport for " ++ toString route
     in
-      thisEvents =
-          
-
-
-    if List.isEmpty events then
-        spinnerText "Подготовка данных..."
-    else
-        Table.view
-            (config App.SportTableState)
-            tableState
-            (Dict.get events)
-
-
+        Dict.get sportID sportEvents
+            |> Maybe.map
+                (List.filterMap (\id -> Dict.get id events)
+                    >> Table.view
+                        (config App.SportTableState)
+                        sportTableState
+                )
+            |> Maybe.withDefault (spinnerText "Подготовка данных...")
 
 
 linkEvent : Int -> String -> Html msg

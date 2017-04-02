@@ -13,8 +13,12 @@ type alias Model =
     { rootLocation : Location
     , route : Route
     , footballGames : List Data.Football.Game
-    , sports : List Data.Aping.Sport
-    , events : Dict Int (List Data.Aping.Event)
+    , sports : Dict Int Data.Aping.Sport
+    , events : Dict Int Data.Aping.Event
+    , markets : Dict Int Data.Aping.Market
+    , sportEvents : Dict Int (List Int)
+    , eventMarkets : Dict Int (List Int)
+    , sportTableState : Table.State
     }
 
 
@@ -27,24 +31,5 @@ type Msg
     | MarketPricesWebData Prices.Market
     | PricesSessionIDWebData String
     | SportTableState Table.State
-    | ToggleMarket String Bool
+    | ToggleMarket String
     | WebDataError String
-
-
-
---getSportOfEventID : Model -> Int -> Maybe Data.Aping.Sport
-
-
-getSportOfEventID : Model -> Int -> Maybe Int
-getSportOfEventID { events } eventID =
-    events
-        |> Dict.filter
-            (\sportID events ->
-                events
-                    |> List.filter (.id >> ((==) eventID))
-                    |> List.isEmpty
-                    |> not
-            )
-        |> Dict.toList
-        |> List.map Tuple.first
-        |> List.head
