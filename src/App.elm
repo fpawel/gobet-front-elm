@@ -4,21 +4,29 @@ import Dict exposing (Dict)
 import Navigation exposing (Location)
 import Data.Football
 import Data.Aping
+import Data.Prices
 import Table
-import Prices
-import Routing exposing (Route)
 
 
 type alias Model =
-    { rootLocation : Location
-    , route : Route
+    { location : Location
+    , page : Page
     , footballGames : List Data.Football.Game
     , sports : Dict Int Data.Aping.Sport
-    , events : Dict Int Data.Aping.Event
-    , markets : Dict Int Data.Aping.Market
     , sportEvents : Dict Int (List Int)
-    , eventMarkets : Dict Int (List Int)
-    , sportTableState : Table.State
+    , events : Dict Int Data.Aping.Event
+    }
+
+
+type Page
+    = PageSport Table.State
+    | PageEvent MarketsPrices
+    | PageFootball
+
+
+type alias MarketsPrices =
+    { session : String
+    , marketsPrices : Dict String Data.Prices.Market
     }
 
 
@@ -27,9 +35,8 @@ type Msg
     | FootballWebData Data.Football.WebData
     | SportsWebData (List Data.Aping.Sport)
     | EventsWebData Int (List Data.Aping.Event)
-    | EventWebData Data.Aping.Event
-    | MarketPricesWebData Prices.Market
-    | PricesSessionIDWebData String
+    | PricesWebData Data.Prices.WebData
     | SportTableState Table.State
     | ToggleMarket String
+    | ToggleMarketPosted String
     | WebDataError String

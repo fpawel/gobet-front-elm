@@ -16,6 +16,16 @@ compareInvert n1 n2 =
             LT
 
 
+fromResult : (a -> x) -> (b -> x) -> Result a b -> x
+fromResult fa fb r =
+    case r of
+        Err a ->
+            fa a
+
+        Ok b ->
+            fb b
+
+
 isJust : Maybe a -> Bool
 isJust =
     Maybe.map (\_ -> True)

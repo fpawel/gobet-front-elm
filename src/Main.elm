@@ -1,50 +1,47 @@
 port module Main exposing (..)
 
+import Navigation exposing (program)
+import Dict exposing (Dict)
+import WebSocket
+import Http
+import Json.Decode
+import Navigation exposing (Location)
+import Data.Football
+import Data.Aping
+import Data.Prices
+import Routing exposing (Route, parseRoute)
+import Help.Utils exposing (websocketURL, isJust, fromResult)
+import App exposing (Msg(..), Page(..), Model)
+import Update.ToggleMarket
+import Table
 import Html exposing (Html)
-import Navigation
-import UrlParser exposing ((</>), parseHash)
-import Data.Aping exposing (Event)
-import Routing
-import Content
-import Msg exposing (Msg)
-import View.Container
-import SportsMenu
+import Debug exposing (crash, log)
 
 
 main : Program Never Model Msg
 main =
-    Navigation.program Msg.OnLocationChanged
+    program LocationChanged
         { init = init
-        , view = view
+        , view = \_ -> Html.div [] []
         , update = update
         , subscriptions = subscriptions
         }
 
 
-
--- MODEL
-
-
-type alias Model =
-    { content : Content.Model
-    , sportsMenu : SportsMenu.Model
-    , location : Navigation.Location
-    }
-
-
-init :
-    Navigation.Location
-    -> ( Model, Cmd Msg )
+init : Navigation.Location -> ( Model, Cmd Msg )
 init location =
     let
-        ( msports, cmdSports ) =
-            SportsMenu.init location
+        ( page, cmd ) =
+            initPage location
     in
-        { content = Content.football location
-        , sportsMenu = msports
-        , location = location
+        { location = location
+        , page = page
+        , footballGames = []
+        , sports = Dict.empty
+        , sportEvents = Dict.empty
+        , events = Dict.empty
         }
-            ! [ Cmd.map Msg.SportsMenu cmdSports ]
+            ! [ cmd ]
 
 
 
@@ -52,55 +49,34 @@ init location =
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update msg m =
     case msg of
-        Msg.OnLocationChanged url ->
-            let
-                currentRoute =
-                    Content.route model.content
+        LocationChanged location ->
+            updateLocation m location
 
-                newRoute =
-                    parseHash Routing.parser url
-                        |> Maybe.withDefault currentRoute
-            in
-                if newRoute == currentRoute then
-                    model ! []
-                else
-                    navigate newRoute model
+        FootballWebData webdata ->
+            updateFootball webdata m
 
-        Msg.SportsMenu msg ->
-            let
-                ( nextSportsMenu, cmdsports ) =
-                    SportsMenu.update msg model.sportsMenu
-            in
-                { model | sportsMenu = nextSportsMenu } ! [ Cmd.map Msg.SportsMenu cmdsports ]
+        WebDataError error ->
+            logValue m "web data error" error
 
-        msg ->
-            let
-                ( content, cmd ) =
-                    Content.update msg model.content
-            in
-                { model | content = content } ! [ cmd ]
+        SportsWebData sports ->
+            { m | sports = dictID sports } ! []
 
+        EventsWebData sportID events ->
+            updateEventsWebData m sportID events
 
-navigate : Routing.Route -> Model -> ( Model, Cmd Msg )
-navigate newRoute model =
-    let
-        ( content, cmd ) =
-            case newRoute of
-                Routing.Football ->
-                    Content.football model.location ! []
+        PricesWebData webdata ->
+            updateMarketsPrices m webdata
 
-                Routing.Sport sportID ->
-                    Content.sport
-                        { location = model.location
-                        , sport = Aping.getSportByID sportID model.sportsMenu.sports
-                        }
+        ToggleMarket marketID ->
+            Update.ToggleMarket.update m marketID
 
-                Routing.Event eventID ->
-                    Content.event model.location eventID
-    in
-        { model | content = content } ! [ cmd ]
+        SportTableState tableState ->
+            updateSportTableState m tableState ! []
+
+        ToggleMarketPosted marketID ->
+            logValue m "ToggleMarketPosted" marketID
 
 
 
@@ -108,34 +84,161 @@ navigate newRoute model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { content } =
-    Content.subscriptions content
+subscriptions m =
+    case parseRoute m.location of
+        Routing.Football ->
+            WebSocket.listen
+                (websocketURL m.location ++ "/football")
+                (Data.Football.parseWebData
+                    >> fromResult WebDataError FootballWebData
+                )
+
+        Routing.Event eventID ->
+            [ WebSocket.listen
+                (websocketURLPrices m.location eventID)
+                Data.Prices.decodeWebData
+                |> Sub.map
+                    (fromResult WebDataError PricesWebData)
+            ]
+                |> Sub.batch
+
+        _ ->
+            Sub.none
 
 
 
--- VIEW
--- "☰"
+-- HELPERS
 
 
-view : Model -> Html Msg
-view { content, sportsMenu } =
-    View.Container.view
-        [ { name = "Футбол"
-          , active = Content.route content == Routing.Football
-          , route = "football"
-          }
-        , { name = "Обзор рынков"
-          , active =
-                case Content.route content of
-                    Routing.Sport _ ->
-                        True
+dictID : List { a | id : comparable } -> Dict comparable { a | id : comparable }
+dictID =
+    List.map (\x -> ( x.id, x )) >> Dict.fromList
 
-                    _ ->
-                        False
-          , route = "sport/1"
-          }
-        ]
-        []
-        [ SportsMenu.view (Content.sportID content) sportsMenu
-        , Content.view sportsMenu.sports content
-        ]
+
+logValue : a -> String -> b -> ( a, Cmd msg )
+logValue m text value =
+    let
+        _ =
+            log text value
+    in
+        m ! []
+
+
+initPage : Location -> ( Page, Cmd Msg )
+initPage location =
+    case parseRoute location of
+        Routing.Football ->
+            ( PageFootball, Cmd.none )
+
+        Routing.Sport sportID ->
+            ( PageSport (Table.initialSort "Дата открытия")
+            , webRequestEvents sportID location
+            )
+
+        Routing.Event eventID ->
+            ( PageEvent
+                { session = ""
+                , marketsPrices = Dict.empty
+                }
+            , Cmd.none
+            )
+
+
+updateLocation : Model -> Location -> ( Model, Cmd Msg )
+updateLocation m location =
+    if parseRoute m.location == parseRoute location then
+        { m | location = location } ! []
+    else
+        let
+            ( page, cmd ) =
+                initPage m.location
+        in
+            { m | location = location, page = page } ! [ cmd ]
+
+
+updatePricesSessionID : Model -> String -> String -> ( Model, Cmd Msg )
+updatePricesSessionID m sessionID hashCode =
+    case ( parseRoute m.location, m.page ) of
+        ( Routing.Event eventID, PageEvent p ) ->
+            { m | page = PageEvent { p | session = sessionID } }
+                ! [ WebSocket.send
+                        (websocketURLPrices m.location eventID)
+                        hashCode
+                  ]
+
+        x ->
+            crash "updatePricesSessionID" x
+
+
+updateFootball : Data.Football.WebData -> Model -> ( Model, Cmd Msg )
+updateFootball webdata m =
+    let
+        nextGames =
+            Data.Football.updateGamesList webdata.changes m.footballGames
+
+        answer =
+            WebSocket.send
+                (websocketURL m.location ++ "/football")
+                webdata.hashCode
+    in
+        { m | footballGames = nextGames } ! [ answer ]
+
+
+websocketURLPrices : Navigation.Location -> Int -> String
+websocketURLPrices location eventID =
+    Help.Utils.websocketURL location ++ "/wsprices/" ++ toString eventID
+
+
+webRequestEvents : Int -> Location -> Cmd Msg
+webRequestEvents sportID location =
+    let
+        eventsURL =
+            location.protocol ++ "//" ++ location.host ++ "/events/" ++ toString sportID
+
+        decoder =
+            Json.Decode.list Data.Aping.decoderEvent
+                |> Json.Decode.field "ok"
+    in
+        Http.get eventsURL decoder
+            |> Http.send
+                (Result.mapError toString
+                    >> fromResult WebDataError (EventsWebData sportID)
+                )
+
+
+updateSportTableState : Model -> Table.State -> Model
+updateSportTableState m newTableState =
+    case ( parseRoute m.location, m.page ) of
+        ( Routing.Event eventID, PageSport p ) ->
+            { m | page = PageSport newTableState }
+
+        x ->
+            crash "updateSportTableState" x
+
+
+updateEventsWebData : Model -> Int -> List Data.Aping.Event -> ( Model, Cmd Msg )
+updateEventsWebData m sportID events =
+    { m
+        | events = Data.Aping.insertEvents m.events (dictID events)
+        , sportEvents = Dict.insert sportID (List.map .id events) m.sportEvents
+    }
+        ! []
+
+
+updateMarketsPrices : Model -> Data.Prices.WebData -> ( Model, Cmd Msg )
+updateMarketsPrices m webdata =
+    case webdata of
+        Data.Prices.WebMarket _ _ ->
+            m ! []
+
+        Data.Prices.WebEvent event hashCode ->
+            { m
+                | events = Dict.insert event.id event m.events
+            }
+                ! [ WebSocket.send
+                        (websocketURLPrices m.location event.id)
+                        hashCode
+                  ]
+
+        Data.Prices.WebSessionID sessionID hashCode ->
+            updatePricesSessionID m sessionID hashCode

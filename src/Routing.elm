@@ -15,8 +15,8 @@ type Route
     | Football
 
 
-parse : Location -> Route
-parse =
+parseRoute : Location -> Route
+parseRoute =
     parseHash
         (oneOf
             [ map Sport (s "sport" </> int)

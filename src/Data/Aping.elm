@@ -35,7 +35,6 @@ type alias Market =
     , totalAvailable : Float
     , runners : List Runner
     , competition : String
-    , isExpanded : Bool
     }
 
 
@@ -74,24 +73,6 @@ insertEvents events newEvents =
         events
         newEvents
         Dict.empty
-
-
-toggleMarketExpanded : String -> Event -> Event
-toggleMarketExpanded marketID event =
-    { event
-        | markets =
-            event.markets
-                |> List.map
-                    (\market ->
-                        { market
-                            | isExpanded =
-                                if market.id == marketID then
-                                    not market.isExpanded
-                                else
-                                    market.isExpanded
-                        }
-                    )
-    }
 
 
 
@@ -160,4 +141,3 @@ decoderMarket =
         |> optional "totalAvailable" D.float 0
         |> optional "runners" (D.list decoderRunner) []
         |> optional "competition" D.string ""
-        |> hardcoded False

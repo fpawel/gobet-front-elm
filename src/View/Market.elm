@@ -10,25 +10,27 @@ import App exposing (Msg(..))
 view : Market -> Html Msg
 view market =
     let
+        marketNameElement =
+            viewMarketName market
+
         runners =
             if market.isExpanded then
-                market.runners
-                    |> List.map
-                        (\{ name, id } ->
-                            tr
-                                []
-                                [ td [] [ text name ]
-                                ]
-                        )
-                    |> tbody []
-                    |> List.singleton
-                    |> table []
-                    |> List.singleton
-                    |> div [ class "panel-body" ]
-                    |> List.singleton
+                viewRunners market.runners
             else
                 []
+    in
+        div
+            [ class "panel panel-primary" ]
+            (if market.isExpanded then
+                marketNameElement :: (viewRunners market.runners)
+             else
+                [ marketNameElement ]
+            )
 
+
+viewMarketName : Market -> Html Msg
+viewMarketName market =
+    let
         marketName =
             td
                 [ attribute "width" "100%" ]
@@ -37,38 +39,48 @@ view market =
                 ]
 
         totalMatchedElement =
-            round market.totalMatched
+            text <| (toString <| round market.totalMatched) ++ "$"
 
         head1 =
             if market.totalMatched /= 0 then
                 [ marketName
                 , td
-                    [ style [ ( "color", "yellow" ) ]
-                    ]
-                    [ text <| (toString market.totalMatched) ++ "$"
-                    ]
+                    [ style [ ( "color", "yellow" ) ] ]
+                    [ totalMatchedElement ]
                 ]
             else
                 [ marketName ]
-
-        heading =
-            div
-                [ class <|
-                    "panel-heading "
-                        ++ (if market.isExpanded then
-                                "dropup"
-                            else
-                                "dropdown"
-                           )
-                , onClick (ToggleMarket market.id (not market.isExpanded))
-                , style [ ( "cursor", "pointer" ) ]
-                , attribute "width" "100%"
-                ]
-                [ table
-                    [ attribute "width" "100%" ]
-                    [ tbody [] [ tr [] head1 ] ]
-                ]
     in
         div
-            [ class "panel panel-primary" ]
-            ([ heading ] ++ runners)
+            [ class <|
+                "panel-heading "
+                    ++ (if market.isExpanded then
+                            "dropup"
+                        else
+                            "dropdown"
+                       )
+            , onClick (ToggleMarket market.id)
+            , style [ ( "cursor", "pointer" ) ]
+            , attribute "width" "100%"
+            ]
+            [ table
+                [ attribute "width" "100%" ]
+                [ tbody [] [ tr [] head1 ] ]
+            ]
+
+
+viewRunners : List Data.Aping.Runner -> List (Html msg)
+viewRunners =
+    List.map
+        (\{ name, id } ->
+            tr
+                []
+                [ td [] [ text name ]
+                ]
+        )
+        >> tbody []
+        >> List.singleton
+        >> table []
+        >> List.singleton
+        >> div [ class "panel-body" ]
+        >> List.singleton
