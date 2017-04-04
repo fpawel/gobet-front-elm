@@ -35,11 +35,15 @@ headPanel market prices =
                 ]
 
         totalMatched =
-            Maybe.andThen .totalMatched prices
+            prices
+                |> Maybe.andThen .totalMatched
+                |> Maybe.withDefault market.totalMatched
                 |> tdMoney "yellow"
 
         totalAvailable =
-            Maybe.andThen .totalAvailable prices
+            prices
+                |> Maybe.andThen .totalAvailable
+                |> Maybe.withDefault market.totalAvailable
                 |> tdMoney "green"
 
         row =
@@ -69,13 +73,7 @@ headPanel market prices =
 
 viewRunners : Maybe Data.Prices.Market -> List Data.Aping.Runner -> List (Html msg)
 viewRunners prices =
-    List.map
-        (\{ name, id } ->
-            tr
-                []
-                [ td [] [ text name ]
-                ]
-        )
+    List.map (viewRunner prices)
         >> tbody []
         >> List.singleton
         >> table []
@@ -84,18 +82,49 @@ viewRunners prices =
         >> List.singleton
 
 
-tdMoney : String -> Maybe number -> Maybe (Html msg)
-tdMoney color =
-    Maybe.andThen
-        (\value ->
-            if value == 0 then
-                Nothing
-            else
-                Just value
-        )
-        >> Maybe.map
-            (\value ->
-                td
-                    [ style [ ( "color", color ) ] ]
-                    [ text <| (toString <| round value) ++ "$" ]
-            )
+viewRunner : Maybe Data.Prices.Market -> Data.Aping.Runner -> Html msg
+viewRunner prices runner =
+    let
+        xs =
+            prices
+                |> Maybe.andThen
+                    (.runners
+                        >> List.filter (\{ id } -> id == runner.id)
+                        >> List.head
+                    )
+                |> Maybe.map .odds
+                |> Maybe.withDefault []
+
+        odd side =
+            xs
+                |> List.filter (\x -> x.side == side)
+                |> List.head
+                |> Maybe.andThen .odd
+                |> Maybe.map
+                    (\{ price, size } ->
+                        toString (round price)
+                            ++ " "
+                            ++ toString (round size)
+                            ++ "$"
+                            |> text
+                            |> List.singleton
+                    )
+                |> Maybe.withDefault []
+    in
+        tr
+            []
+            [ td [ attribute "width" "100%" ] [ text runner.name ]
+            , td [ attribute "width" "40px" ] (odd "BACK")
+            , td [ attribute "width" "40px" ] (odd "LAY")
+            ]
+
+
+tdMoney : String -> Float -> Maybe (Html msg)
+tdMoney color value =
+    if value == 0 then
+        Nothing
+    else
+        td
+            [ style [ ( "color", color ) ] ]
+            [ text <| (toString <| round value) ++ "$" ]
+            |> Just
