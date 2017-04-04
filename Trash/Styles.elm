@@ -1,7 +1,7 @@
 module Styles exposing (..)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html exposing (Attribute)
+import Html.Attributes as Attr
 
 
 animated : String
@@ -31,20 +31,20 @@ bounceInUp =
 
 animated_jello_2s : List (Html.Attribute msg)
 animated_jello_2s =
-    [ class (animated ++ " " ++ jello)
-    , style [ ( "-webkit-animation-duration", "2s" ) ]
+    [ Attr.class (animated ++ " " ++ jello)
+    , Attr.style [ ( "-webkit-animation-duration", "2s" ) ]
     ]
 
 
 animated_flash_2s : List (Html.Attribute msg)
 animated_flash_2s =
-    [ class (animated ++ " " ++ flash)
-    , style [ ( "-webkit-animation-duration", "2s" ) ]
+    [ Attr.class (animated ++ " " ++ flash)
+    , Attr.style [ ( "-webkit-animation-duration", "2s" ) ]
     ]
 
 
 animated_bounceInUp_2s : List (Html.Attribute msg)
 animated_bounceInUp_2s =
-    [ class (animated ++ " " ++ bounceInUp)
-    , style [ ( "-webkit-animation-duration", "2s" ) ]
+    [ Attr.class (animated ++ " " ++ bounceInUp)
+    , Attr.style [ ( "-webkit-animation-duration", "2s" ) ]
     ]

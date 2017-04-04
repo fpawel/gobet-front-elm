@@ -9,26 +9,26 @@ import Navigation exposing (Location)
 import Data.Football
 import Data.Aping
 import Data.Prices
-import Routing exposing (Route, parseRoute)
+import Routing exposing (Route(..), parseRoute)
 import Help.Utils exposing (websocketURL, isJust, fromResult)
 import App exposing (Msg(..), Page(..), Model)
 import Update.ToggleMarket
 import Table
-import Html exposing (Html)
 import Debug exposing (crash, log)
+import View exposing (view)
 
 
 main : Program Never Model Msg
 main =
     program LocationChanged
         { init = init
-        , view = \_ -> Html.div [] []
+        , view = view
         , update = update
         , subscriptions = subscriptions
         }
 
 
-init : Navigation.Location -> ( Model, Cmd Msg )
+init : Location -> ( Model, Cmd Msg )
 init location =
     let
         ( page, cmd ) =
@@ -41,7 +41,9 @@ init location =
         , sportEvents = Dict.empty
         , events = Dict.empty
         }
-            ! [ cmd ]
+            ! [ cmd
+              , webRequestSports location
+              ]
 
 
 
@@ -86,21 +88,19 @@ update msg m =
 subscriptions : Model -> Sub Msg
 subscriptions m =
     case parseRoute m.location of
-        Routing.Football ->
+        RouteFootball ->
             WebSocket.listen
                 (websocketURL m.location ++ "/football")
                 (Data.Football.parseWebData
                     >> fromResult WebDataError FootballWebData
                 )
 
-        Routing.Event eventID ->
-            [ WebSocket.listen
+        RouteEvent eventID ->
+            WebSocket.listen
                 (websocketURLPrices m.location eventID)
                 Data.Prices.decodeWebData
                 |> Sub.map
                     (fromResult WebDataError PricesWebData)
-            ]
-                |> Sub.batch
 
         _ ->
             Sub.none
@@ -127,15 +127,15 @@ logValue m text value =
 initPage : Location -> ( Page, Cmd Msg )
 initPage location =
     case parseRoute location of
-        Routing.Football ->
+        RouteFootball ->
             ( PageFootball, Cmd.none )
 
-        Routing.Sport sportID ->
+        RouteSport sportID ->
             ( PageSport (Table.initialSort "Дата открытия")
             , webRequestEvents sportID location
             )
 
-        Routing.Event eventID ->
+        RouteEvent eventID ->
             ( PageEvent
                 { session = ""
                 , marketsPrices = Dict.empty
@@ -145,21 +145,31 @@ initPage location =
 
 
 updateLocation : Model -> Location -> ( Model, Cmd Msg )
-updateLocation m location =
-    if parseRoute m.location == parseRoute location then
-        { m | location = location } ! []
-    else
-        let
-            ( page, cmd ) =
-                initPage m.location
-        in
-            { m | location = location, page = page } ! [ cmd ]
+updateLocation m nextLocation =
+    let
+        prevRoute =
+            parseRoute m.location
+
+        nextRoute =
+            parseRoute nextLocation
+
+        m_ =
+            { m | location = nextLocation }
+    in
+        if prevRoute == nextRoute then
+            m_ ! []
+        else
+            let
+                ( page, cmd ) =
+                    initPage nextLocation
+            in
+                { m_ | page = page } ! [ cmd ]
 
 
 updatePricesSessionID : Model -> String -> String -> ( Model, Cmd Msg )
 updatePricesSessionID m sessionID hashCode =
     case ( parseRoute m.location, m.page ) of
-        ( Routing.Event eventID, PageEvent p ) ->
+        ( RouteEvent eventID, PageEvent p ) ->
             { m | page = PageEvent { p | session = sessionID } }
                 ! [ WebSocket.send
                         (websocketURLPrices m.location eventID)
@@ -167,7 +177,7 @@ updatePricesSessionID m sessionID hashCode =
                   ]
 
         x ->
-            crash "updatePricesSessionID" x
+            crash ("updatePricesSessionID: " ++ toString x)
 
 
 updateFootball : Data.Football.WebData -> Model -> ( Model, Cmd Msg )
@@ -189,11 +199,32 @@ websocketURLPrices location eventID =
     Help.Utils.websocketURL location ++ "/wsprices/" ++ toString eventID
 
 
+webRequestSports : Location -> Cmd Msg
+webRequestSports location =
+    let
+        url =
+            location.protocol ++ "//" ++ location.host ++ "/sports"
+
+        decoder =
+            Json.Decode.list Data.Aping.decoderSport
+                |> Json.Decode.field "ok"
+    in
+        Http.get url decoder
+            |> Http.send
+                (Result.mapError toString
+                    >> fromResult WebDataError SportsWebData
+                )
+
+
 webRequestEvents : Int -> Location -> Cmd Msg
 webRequestEvents sportID location =
     let
         eventsURL =
-            location.protocol ++ "//" ++ location.host ++ "/events/" ++ toString sportID
+            location.protocol
+                ++ "//"
+                ++ location.host
+                ++ "/events/"
+                ++ toString sportID
 
         decoder =
             Json.Decode.list Data.Aping.decoderEvent
@@ -208,12 +239,12 @@ webRequestEvents sportID location =
 
 updateSportTableState : Model -> Table.State -> Model
 updateSportTableState m newTableState =
-    case ( parseRoute m.location, m.page ) of
-        ( Routing.Event eventID, PageSport p ) ->
+    case m.page of
+        PageSport p ->
             { m | page = PageSport newTableState }
 
         x ->
-            crash "updateSportTableState" x
+            crash <| "updateSportTableState: " ++ toString x
 
 
 updateEventsWebData : Model -> Int -> List Data.Aping.Event -> ( Model, Cmd Msg )
@@ -227,18 +258,27 @@ updateEventsWebData m sportID events =
 
 updateMarketsPrices : Model -> Data.Prices.WebData -> ( Model, Cmd Msg )
 updateMarketsPrices m webdata =
-    case webdata of
-        Data.Prices.WebMarket _ _ ->
+    case (parseRoute m.location) of
+        RouteEvent eventID ->
+            case webdata of
+                Data.Prices.WebMarket _ hashCode ->
+                    m
+                        ! [ WebSocket.send
+                                (websocketURLPrices m.location eventID)
+                                hashCode
+                          ]
+
+                Data.Prices.WebEvent event hashCode ->
+                    { m
+                        | events = Dict.insert event.id event m.events
+                    }
+                        ! [ WebSocket.send
+                                (websocketURLPrices m.location event.id)
+                                hashCode
+                          ]
+
+                Data.Prices.WebSessionID sessionID hashCode ->
+                    updatePricesSessionID m sessionID hashCode
+
+        _ ->
             m ! []
-
-        Data.Prices.WebEvent event hashCode ->
-            { m
-                | events = Dict.insert event.id event m.events
-            }
-                ! [ WebSocket.send
-                        (websocketURLPrices m.location event.id)
-                        hashCode
-                  ]
-
-        Data.Prices.WebSessionID sessionID hashCode ->
-            updatePricesSessionID m sessionID hashCode

@@ -7,7 +7,7 @@ import Football as MFootball
 import Sport as MSport
 import Event as MEvent
 import Msg exposing (Msg)
-import Routing exposing (Route)
+import Routing exposing (Route(..))
 import Aping
 
 
@@ -63,13 +63,13 @@ route : Model -> Route
 route model =
     case model of
         Sport { sport } ->
-            Routing.Sport sport.id
+            RouteSport sport.id
 
         Event { eventID } ->
-            Routing.Event eventID
+            RouteEvent eventID
 
         Football _ ->
-            Routing.Football
+            RouteFootball
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

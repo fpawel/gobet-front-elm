@@ -12,7 +12,7 @@ import Html
         )
 import Html.Attributes exposing (class, classList, href, style, attribute, colspan, href, id)
 import Data.Aping exposing (Sport)
-import Routing exposing (Route)
+import Routing exposing (Route, parseRoute)
 import App exposing (Model)
 import Dict
 
@@ -21,18 +21,18 @@ import Dict
 
 
 view : Model -> Html a
-view ({ route, sports, events } as model) =
+view ({ location, sports, events } as model) =
     let
         sportID =
-            case route of
-                Routing.Football ->
+            case parseRoute location of
+                Routing.RouteFootball ->
                     1
 
-                Routing.Sport sportID ->
+                Routing.RouteSport sportID ->
                     sportID
 
-                Routing.Event eventID ->
-                    Dict.get eventID sports
+                Routing.RouteEvent eventID ->
+                    App.tryGetSportByEventID model eventID
                         |> Maybe.map .id
                         |> Maybe.withDefault 0
 

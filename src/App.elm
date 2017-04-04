@@ -40,3 +40,20 @@ type Msg
     | ToggleMarket String
     | ToggleMarketPosted String
     | WebDataError String
+
+
+tryGetSportByEventID : Model -> Int -> Maybe Data.Aping.Sport
+tryGetSportByEventID m eventID =
+    m.sportEvents
+        |> Dict.toList
+        |> List.concatMap
+            (\( sportID, eventIDs ) ->
+                eventIDs
+                    |> List.map (\eventID -> ( eventID, sportID ))
+            )
+        |> Dict.fromList
+        |> Dict.get eventID
+        |> Maybe.andThen
+            (\sportID ->
+                Dict.get sportID m.sports
+            )

@@ -10,18 +10,18 @@ import Navigation exposing (Location)
 
 
 type Route
-    = Sport Int
-    | Event Int
-    | Football
+    = RouteSport Int
+    | RouteEvent Int
+    | RouteFootball
 
 
 parseRoute : Location -> Route
 parseRoute =
     parseHash
         (oneOf
-            [ map Sport (s "sport" </> int)
-            , map Football (s "football")
-            , map Event (s "event" </> int)
+            [ map RouteSport (s "sport" </> int)
+            , map RouteFootball (s "football")
+            , map RouteEvent (s "event" </> int)
             ]
         )
-        >> Maybe.withDefault Football
+        >> Maybe.withDefault RouteFootball

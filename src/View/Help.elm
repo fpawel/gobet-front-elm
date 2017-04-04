@@ -1,25 +1,7 @@
 module View.Help exposing (..)
 
-import Html.Attributes exposing (class, href, style, attribute)
-import Html
-    exposing
-        ( Html
-        , Attribute
-        , button
-        , ul
-        , li
-        , h1
-        , h3
-        , span
-        , div
-        , nav
-        , tbody
-        , tr
-        , td
-        , th
-        , thead
-        , table
-        )
+import Html.Attributes exposing (..)
+import Html exposing (..)
 
 
 spinnerText : String -> Html msg
@@ -38,22 +20,4 @@ spinnerText text =
                 []
             ]
         , Html.text text
-        ]
-
-
-mainMenuItem : String -> List (Html msg) -> Html msg
-mainMenuItem title items =
-    li
-        [ class "dropdown" ]
-        [ Html.a
-            [ class "dropdown-toggle"
-            , attribute "data-toggle" "dropdown"
-            , href "#"
-            ]
-            [ Html.text title
-            , span [ class "caret" ] []
-            ]
-        , ul
-            [ class "dropdown-menu" ]
-            items
         ]

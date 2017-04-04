@@ -1,15 +1,20 @@
-module Data.Prices exposing (WebData(..), Market, decodeWebData, encodeToggleMarket)
+module Data.Prices exposing (WebData(..), Market, decodeWebData, encodeToggleMarket, toggleMarket)
 
 import Json.Decode as D exposing (Decoder)
 import Json.Encode as E exposing (object, encode)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
 import Data.Aping exposing (Event, decoderEvent)
+import Dict exposing (Dict)
 
 
 type WebData
     = WebEvent Data.Aping.Event String
     | WebMarket Market String
     | WebSessionID String String
+
+
+type alias Markets =
+    Dict String Market
 
 
 type alias Market =
@@ -37,6 +42,23 @@ type alias PriceSize =
     { price : Float
     , size : Float
     }
+
+
+toggleMarket : String -> Dict String Market -> Dict String Market
+toggleMarket marketID marketsPrices =
+    marketsPrices
+        |> Dict.get marketID
+        |> Maybe.map (\_ -> Dict.remove marketID marketsPrices)
+        |> Maybe.withDefault
+            (Dict.insert
+                marketID
+                { id = marketID
+                , totalMatched = Nothing
+                , totalAvailable = Nothing
+                , runners = []
+                }
+                marketsPrices
+            )
 
 
 encodeToggleMarket :

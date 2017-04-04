@@ -9,33 +9,21 @@ import Table exposing (defaultCustomizations)
 import DateUtils
 import Date
 import Dict
-import Routing
-import Debug
-import Dict
 
 
 -- VIEW
 
 
-view : Model -> Html App.Msg
-view ({ events, sportEvents, route, sportTableState } as model) =
-    let
-        sportID =
-            case route of
-                Routing.Sport sportID ->
-                    sportID
-
-                _ ->
-                    Debug.crash <| "sport for " ++ toString route
-    in
-        Dict.get sportID sportEvents
-            |> Maybe.map
-                (List.filterMap (\id -> Dict.get id events)
-                    >> Table.view
-                        (config App.SportTableState)
-                        sportTableState
-                )
-            |> Maybe.withDefault (spinnerText "Подготовка данных...")
+view : Model -> Int -> Table.State -> Html App.Msg
+view m sportID tableState =
+    Dict.get sportID m.sportEvents
+        |> Maybe.map
+            (List.filterMap (\id -> Dict.get id m.events)
+                >> Table.view
+                    (config App.SportTableState)
+                    tableState
+            )
+        |> Maybe.withDefault (spinnerText "Подготовка данных...")
 
 
 linkEvent : Int -> String -> Html msg

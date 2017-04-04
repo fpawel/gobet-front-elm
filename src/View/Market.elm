@@ -3,33 +3,29 @@ module View.Market exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Data.Aping exposing (Market)
+import Data.Aping
+import Data.Prices
 import App exposing (Msg(..))
+import Help.Utils exposing (isJust)
 
 
-view : Market -> Html Msg
-view market =
+view : Data.Aping.Market -> Maybe Data.Prices.Market -> Html Msg
+view market prices =
     let
-        marketNameElement =
-            viewMarketName market
-
-        runners =
-            if market.isExpanded then
-                viewRunners market.runners
-            else
-                []
+        headPan =
+            headPanel market prices
     in
         div
             [ class "panel panel-primary" ]
-            (if market.isExpanded then
-                marketNameElement :: (viewRunners market.runners)
+            (if isJust prices then
+                headPan :: (viewRunners prices market.runners)
              else
-                [ marketNameElement ]
+                [ headPan ]
             )
 
 
-viewMarketName : Market -> Html Msg
-viewMarketName market =
+headPanel : Data.Aping.Market -> Maybe Data.Prices.Market -> Html Msg
+headPanel market prices =
     let
         marketName =
             td
@@ -38,23 +34,25 @@ viewMarketName market =
                 , span [ style [ ( "margin-left", "5px" ) ] ] [ text market.name ]
                 ]
 
-        totalMatchedElement =
-            text <| (toString <| round market.totalMatched) ++ "$"
+        totalMatched =
+            Maybe.andThen .totalMatched prices
+                |> tdMoney "yellow"
 
-        head1 =
-            if market.totalMatched /= 0 then
-                [ marketName
-                , td
-                    [ style [ ( "color", "yellow" ) ] ]
-                    [ totalMatchedElement ]
-                ]
-            else
-                [ marketName ]
+        totalAvailable =
+            Maybe.andThen .totalAvailable prices
+                |> tdMoney "green"
+
+        row =
+            [ Just marketName
+            , totalMatched
+            , totalAvailable
+            ]
+                |> List.filterMap identity
     in
         div
             [ class <|
                 "panel-heading "
-                    ++ (if market.isExpanded then
+                    ++ (if isJust prices then
                             "dropup"
                         else
                             "dropdown"
@@ -65,12 +63,12 @@ viewMarketName market =
             ]
             [ table
                 [ attribute "width" "100%" ]
-                [ tbody [] [ tr [] head1 ] ]
+                [ tbody [] [ tr [] row ] ]
             ]
 
 
-viewRunners : List Data.Aping.Runner -> List (Html msg)
-viewRunners =
+viewRunners : Maybe Data.Prices.Market -> List Data.Aping.Runner -> List (Html msg)
+viewRunners prices =
     List.map
         (\{ name, id } ->
             tr
@@ -84,3 +82,20 @@ viewRunners =
         >> List.singleton
         >> div [ class "panel-body" ]
         >> List.singleton
+
+
+tdMoney : String -> Maybe number -> Maybe (Html msg)
+tdMoney color =
+    Maybe.andThen
+        (\value ->
+            if value == 0 then
+                Nothing
+            else
+                Just value
+        )
+        >> Maybe.map
+            (\value ->
+                td
+                    [ style [ ( "color", color ) ] ]
+                    [ text <| (toString <| round value) ++ "$" ]
+            )

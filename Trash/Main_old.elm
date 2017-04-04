@@ -88,16 +88,16 @@ navigate newRoute model =
     let
         ( content, cmd ) =
             case newRoute of
-                Routing.Football ->
+                Routing.RouteFootball ->
                     Content.football model.location ! []
 
-                Routing.Sport sportID ->
+                Routing.RouteSport sportID ->
                     Content.sport
                         { location = model.location
                         , sport = Aping.getSportByID sportID model.sportsMenu.sports
                         }
 
-                Routing.Event eventID ->
+                Routing.RouteEvent eventID ->
                     Content.event model.location eventID
     in
         { model | content = content } ! [ cmd ]
@@ -121,13 +121,13 @@ view : Model -> Html Msg
 view { content, sportsMenu } =
     View.Container.view
         [ { name = "Футбол"
-          , active = Content.route content == Routing.Football
+          , active = Content.route content == Routing.RouteFootball
           , route = "football"
           }
         , { name = "Обзор рынков"
           , active =
                 case Content.route content of
-                    Routing.Sport _ ->
+                    Routing.RouteSport _ ->
                         True
 
                     _ ->

@@ -2,7 +2,6 @@ module Update.ToggleMarket exposing (update)
 
 import Http
 import Json.Decode
-import Data.Aping
 import Data.Prices
 import Help.Utils exposing (websocketURL, isJust, fromResult)
 import App exposing (Msg(..), Page(..), Model)
@@ -18,38 +17,37 @@ update m marketID =
                 marketPrices =
                     Dict.get marketID p.marketsPrices
 
-                nextMarketsPrices =
-                    marketPrices
-                        |> Maybe.map (\_ -> Dict.remove marketID p.marketsPrices)
-                        |> Maybe.withDefault p.marketsPrices
+                marketsPrices =
+                    Data.Prices.toggleMarket marketID p.marketsPrices
 
-                nextMarketExapnded =
-                    isJust marketPrices |> not
+                include =
+                    Dict.get marketID marketsPrices
+                        |> isJust
 
                 cmds =
                     if String.isEmpty p.session then
                         []
                     else
-                        [ webPostToggleMarket m marketID ]
+                        [ webPostToggleMarket m marketID include ]
             in
-                { m | page = PageEvent { p | marketsPrices = nextMarketsPrices } }
-                    ! [ webPostToggleMarket m marketID ]
+                { m | page = PageEvent { p | marketsPrices = marketsPrices } }
+                    ! cmds
 
         _ ->
             Debug.crash "updateToggleMarket" m.page
 
 
-webPostToggleMarket : Model -> String -> Cmd Msg
-webPostToggleMarket m marketID =
+webPostToggleMarket : Model -> String -> Bool -> Cmd Msg
+webPostToggleMarket m marketID include =
     case m.page of
         PageEvent p ->
             let
                 url =
-                    m.location.protocol ++ "//" ++ m.location.host ++ "/wsprices-markets/"
+                    m.location.protocol ++ "//" ++ m.location.host ++ "/prices-markets"
 
                 bodyData =
                     { id = marketID
-                    , include = False
+                    , include = include
                     , session = p.session
                     }
 
@@ -59,7 +57,7 @@ webPostToggleMarket m marketID =
                         (Data.Prices.encodeToggleMarket bodyData)
 
                 decoder =
-                    Data.Aping.decoderEvent
+                    Json.Decode.succeed (ToggleMarketPosted marketID)
                         |> Json.Decode.field "ok"
             in
                 Http.post
@@ -68,9 +66,7 @@ webPostToggleMarket m marketID =
                     decoder
                     |> Http.send
                         (Result.mapError toString
-                            >> fromResult
-                                WebDataError
-                                (\_ -> ToggleMarketPosted marketID)
+                            >> fromResult WebDataError identity
                         )
 
         _ ->

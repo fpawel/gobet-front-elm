@@ -75,6 +75,26 @@ insertEvents events newEvents =
         Dict.empty
 
 
+chooseMarkets : List Market -> List Market
+chooseMarkets =
+    List.filter (\{ name } -> name /= "Азиатский гандикап")
+        >> List.sortBy
+            (\{ name, totalMatched } ->
+                ( case name of
+                    "Ставки" ->
+                        0
+
+                    "Результат" ->
+                        1
+
+                    _ ->
+                        2
+                , (-1) * totalMatched
+                , name
+                )
+            )
+
+
 
 -- DECODERS
 

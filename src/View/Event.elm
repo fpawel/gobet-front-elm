@@ -2,22 +2,37 @@ module View.Event exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Navigation exposing (Location)
 import Data.Aping
-import App
+import Data.Prices
+import App exposing (Model, Msg)
 import DateUtils
+import Dict
+import View.Market
+import View.Help exposing (spinnerText)
+
+
+type alias Markets =
+    Dict.Dict String Data.Prices.Market
+
 
 
 -- VIEW
 
 
-view1 : Data.Aping.Event -> List Data.Aping.Market -> Html App.Msg
-view1 event markets =
+view : Model -> Int -> Markets -> Html Msg
+view m eventID markets =
+    Dict.get eventID m.events
+        |> Maybe.map (viewEvent markets)
+        |> Maybe.withDefault (spinnerText "Подготовка данных...")
+
+
+viewEvent : Markets -> Data.Aping.Event -> Html App.Msg
+viewEvent markets event =
     let
         date =
             DateUtils.formatDayMonthYear <| DateUtils.dateFromDate event.openDate
 
-        header =
+        navbarHeader =
             div [ class "page-header" ]
                 [ h1 [] [ text <| event.name ]
                 ]
@@ -26,13 +41,36 @@ view1 event markets =
             div [ style [ ( "text-align", "right" ) ] ]
                 [ text (event.country ++ ", " ++ date) ]
 
+        choosenMarkets =
+            event.markets
+                |> Data.Aping.chooseMarkets
+
+        templateMarkets =
+            if List.isEmpty choosenMarkets then
+                [ spinnerText "Запрос рынков..." ]
+            else
+                split2ColumnsMarkets markets choosenMarkets
+    in
+        div []
+            [ navbarHeader
+            , date_country
+            , div
+                [ class "row"
+                , style [ ( "margin-top", "5px" ) ]
+                ]
+                templateMarkets
+            ]
+
+
+split2ColumnsMarkets : Markets -> List Data.Aping.Market -> List (Html Msg)
+split2ColumnsMarkets markets choosenMarkets =
+    let
         ( ms1_, ms2_ ) =
-            markets
+            choosenMarkets
                 |> List.indexedMap
-                    (\n mmarket ->
+                    (\n market ->
                         ( n % 2
-                        , Market.view mmarket
-                            |> Html.map (MsgMarket mmarket.market.id)
+                        , View.Market.view market (Dict.get market.id markets)
                         )
                     )
                 |> List.partition (Tuple.first >> (==) 0)
@@ -43,24 +81,6 @@ view1 event markets =
         ms2 =
             List.map Tuple.second ms2_
     in
-        div []
-            [ header
-            , date_country
-            , div
-                [ class "row"
-                , style [ ( "margin-top", "5px" ) ]
-                ]
-                [ div [ class "col-sm-6" ] ms1
-                , div [ class "col-sm-6" ] ms2
-                ]
-            ]
-
-
-view : Model -> Html Msg
-view { event, markets } =
-    case event of
-        Just event ->
-            view1 event markets
-
-        _ ->
-            spinner_text "Подготовка данных..."
+        [ div [ class "col-sm-6" ] ms1
+        , div [ class "col-sm-6" ] ms2
+        ]
