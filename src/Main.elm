@@ -258,15 +258,19 @@ updateEventsWebData m sportID events =
 
 updateMarketsPrices : Model -> Data.Prices.WebData -> ( Model, Cmd Msg )
 updateMarketsPrices m webdata =
-    case (parseRoute m.location) of
-        RouteEvent eventID ->
+    case ( parseRoute m.location, m.page ) of
+        ( RouteEvent eventID, PageEvent p ) ->
             case webdata of
-                Data.Prices.WebMarket _ hashCode ->
-                    m
-                        ! [ WebSocket.send
-                                (websocketURLPrices m.location eventID)
-                                hashCode
-                          ]
+                Data.Prices.WebMarket markets hashCode ->
+                    let
+                        nextAppMarkets =
+                            Data.Prices.updateAppMarkets p.marketsPrices markets
+                    in
+                        { m | page = PageEvent { p | marketsPrices = nextAppMarkets } }
+                            ! [ WebSocket.send
+                                    (websocketURLPrices m.location eventID)
+                                    hashCode
+                              ]
 
                 Data.Prices.WebEvent event hashCode ->
                     { m

@@ -5,27 +5,32 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Data.Aping
 import Data.Prices
-import App exposing (Msg(..))
+import Dict
+import App exposing (Msg(..), Markets)
 import Help.Utils exposing (isJust)
 
 
-view : Data.Aping.Market -> Maybe Data.Prices.Market -> Html Msg
-view market prices =
+view : Data.Aping.Market -> Markets -> Html Msg
+view market markets =
     let
         headPan =
-            headPanel market prices
+            headPanel market markets
     in
         div
-            [ class "panel panel-primary" ]
-            (if isJust prices then
-                headPan :: (viewRunners prices market.runners)
-             else
-                [ headPan ]
+            [ class "panel panel-primary"
+            , style [ ( "margin-bottom", "5px" ) ]
+            ]
+            (case Dict.get market.id markets of
+                Just appMarket ->
+                    headPan :: (viewRunners appMarket market.runners)
+
+                _ ->
+                    [ headPan ]
             )
 
 
-headPanel : Data.Aping.Market -> Maybe Data.Prices.Market -> Html Msg
-headPanel market prices =
+headPanel : Data.Aping.Market -> Markets -> Html Msg
+headPanel market markets =
     let
         marketName =
             td
@@ -34,17 +39,20 @@ headPanel market prices =
                 , span [ style [ ( "margin-left", "5px" ) ] ] [ text market.name ]
                 ]
 
+        appMarket =
+            Dict.get market.id markets
+
         totalMatched =
-            prices
+            appMarket
                 |> Maybe.andThen .totalMatched
                 |> Maybe.withDefault market.totalMatched
-                |> tdMoney "yellow"
+                |> tdMoney "totalMatched" "yellow"
 
         totalAvailable =
-            prices
+            appMarket
                 |> Maybe.andThen .totalAvailable
                 |> Maybe.withDefault market.totalAvailable
-                |> tdMoney "green"
+                |> tdMoney "totalAvailable" "LightCyan"
 
         row =
             [ Just marketName
@@ -56,11 +64,12 @@ headPanel market prices =
         div
             [ class <|
                 "panel-heading "
-                    ++ (if isJust prices then
+                    ++ (if isJust appMarket then
                             "dropup"
                         else
                             "dropdown"
                        )
+            , style [ ( "padding", "3px 5px" ) ]
             , onClick (ToggleMarket market.id)
             , style [ ( "cursor", "pointer" ) ]
             , attribute "width" "100%"
@@ -71,60 +80,90 @@ headPanel market prices =
             ]
 
 
-viewRunners : Maybe Data.Prices.Market -> List Data.Aping.Runner -> List (Html msg)
-viewRunners prices =
-    List.map (viewRunner prices)
+viewRunners : App.Market -> List Data.Aping.Runner -> List (Html msg)
+viewRunners market =
+    List.map (viewRunner market)
         >> tbody []
         >> List.singleton
-        >> table []
+        >> table [ class "table table-condenced table-market-runners" ]
         >> List.singleton
-        >> div [ class "panel-body" ]
+        >> div
+            [ class "panel-body"
+            , style [ ( "padding", "10px" ) ]
+            ]
         >> List.singleton
 
 
-viewRunner : Maybe Data.Prices.Market -> Data.Aping.Runner -> Html msg
-viewRunner prices runner =
+viewRunner : App.Market -> Data.Aping.Runner -> Html msg
+viewRunner market runner =
     let
-        xs =
-            prices
-                |> Maybe.andThen
-                    (.runners
-                        >> List.filter (\{ id } -> id == runner.id)
-                        >> List.head
-                    )
-                |> Maybe.map .odds
-                |> Maybe.withDefault []
-
         odd side =
-            xs
-                |> List.filter (\x -> x.side == side)
-                |> List.head
-                |> Maybe.andThen .odd
-                |> Maybe.map
-                    (\{ price, size } ->
-                        toString (round price)
-                            ++ " "
-                            ++ toString (round size)
-                            ++ "$"
-                            |> text
-                            |> List.singleton
-                    )
-                |> Maybe.withDefault []
+            Dict.get ( runner.id, side, 0 ) market.prices
+                |> Maybe.map (tdPriceSize side)
+                |> Maybe.withDefault
+                    (td [ attribute "width" "80px" ] [])
     in
         tr
             []
-            [ td [ attribute "width" "100%" ] [ text runner.name ]
-            , td [ attribute "width" "40px" ] (odd "BACK")
-            , td [ attribute "width" "40px" ] (odd "LAY")
+            [ td
+                [ class "runner" ]
+                [ text runner.name ]
+            , odd "BACK"
+            , odd "LAY"
             ]
 
 
-tdMoney : String -> Float -> Maybe (Html msg)
-tdMoney color value =
+tdPriceSize : String -> Data.Prices.PriceSize -> Html msg
+tdPriceSize side { price, size } =
+    td
+        [ attribute "width" "80px"
+        , class <|
+            "price "
+                ++ (if side == "BACK" then
+                        "back"
+                    else
+                        "lay"
+                   )
+        ]
+        [ div [ attribute "width" "100%" ]
+            [ div
+                [ style [ ( "font-weight", "bolder" ) ] ]
+                [ text <| toString price ]
+            , div
+                [ style
+                    [ ( "font-style", "italic" )
+                    , ( "font-size", "small" )
+                    ]
+                ]
+                [ toString (round size)
+                    ++ "$"
+                    |> text
+                ]
+            ]
+        ]
+
+
+tdMoney : String -> String -> Float -> Maybe (Html msg)
+tdMoney tooltip color value =
     if value == 0 then
         Nothing
     else
         td
-            [ style [ ( "color", color ) ] ]
-            [ text <| (toString <| round value) ++ "$" ]
+            [ style
+                [ ( "color", color ) ]
+            ]
+            [ div [ class "tooltip" ]
+                [ span
+                    [ style [ ( "margin-left", "10px" ) ] ]
+                    [ text <| (toString <| round value) ++ "$" ]
+                , span
+                    [ class "tooltip-text" ]
+                    [ text tooltip ]
+                ]
+            ]
             |> Just
+
+
+width100perc : Attribute msg
+width100perc =
+    attribute "width" "100%"

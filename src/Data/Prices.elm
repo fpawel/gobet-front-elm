@@ -1,4 +1,14 @@
-module Data.Prices exposing (WebData(..), Market, decodeWebData, encodeToggleMarket, toggleMarket)
+module Data.Prices
+    exposing
+        ( WebData(..)
+        , Market
+        , AppMarket
+        , MarketPrices
+        , PriceSize
+        , decodeWebData
+        , encodeToggleMarket
+        , updateAppMarkets
+        )
 
 import Json.Decode as D exposing (Decoder)
 import Json.Encode as E exposing (object, encode)
@@ -13,6 +23,10 @@ type WebData
     | WebSessionID String String
 
 
+type alias AppMarkets =
+    Dict String AppMarket
+
+
 type alias Markets =
     Dict String Market
 
@@ -23,6 +37,22 @@ type alias Market =
     , totalAvailable : Maybe Float
     , runners : List Runner
     }
+
+
+type alias AppMarket =
+    { id : String
+    , totalMatched : Maybe Float
+    , totalAvailable : Maybe Float
+    , prices : MarketPrices
+    }
+
+
+type alias MarketPrices =
+    Dict PriceIndex PriceSize
+
+
+type alias PriceIndex =
+    ( Int, String, Int )
 
 
 type alias Runner =
@@ -44,21 +74,63 @@ type alias PriceSize =
     }
 
 
-toggleMarket : String -> Dict String Market -> Dict String Market
-toggleMarket marketID marketsPrices =
-    marketsPrices
-        |> Dict.get marketID
-        |> Maybe.map (\_ -> Dict.remove marketID marketsPrices)
-        |> Maybe.withDefault
-            (Dict.insert
-                marketID
-                { id = marketID
-                , totalMatched = Nothing
-                , totalAvailable = Nothing
-                , runners = []
-                }
-                marketsPrices
-            )
+updateAppMarkets : AppMarkets -> Market -> AppMarkets
+updateAppMarkets markets market =
+    let
+        m =
+            Dict.get market.id markets
+                |> Maybe.withDefault
+                    { id = market.id
+                    , totalMatched = Nothing
+                    , totalAvailable = Nothing
+                    , prices = Dict.empty
+                    }
+                |> updateAppMarket market
+    in
+        Dict.insert market.id m markets
+
+
+updateAppMarket : Market -> AppMarket -> AppMarket
+updateAppMarket { id, totalMatched, totalAvailable, runners } x =
+    { x
+        | id = id
+        , totalMatched = totalMatched
+        , totalAvailable = totalAvailable
+        , prices =
+            runners
+                |> indexedPrices
+                |> Dict.fromList
+                |> updateMarketPrices x.prices
+    }
+
+
+indexedPrices : List Runner -> List ( PriceIndex, Maybe PriceSize )
+indexedPrices =
+    List.concatMap
+        (\runner ->
+            runner.odds
+                |> List.map
+                    (\odd ->
+                        ( ( runner.id, odd.side, odd.index ), odd.odd )
+                    )
+        )
+
+
+updateMarketPrices : MarketPrices -> Dict PriceIndex (Maybe PriceSize) -> MarketPrices
+updateMarketPrices ms rs =
+    let
+        maybeInsert k =
+            Maybe.map
+                (Dict.insert k)
+                >> Maybe.withDefault identity
+    in
+        Dict.merge
+            Dict.insert
+            (\k _ -> maybeInsert k)
+            maybeInsert
+            ms
+            rs
+            Dict.empty
 
 
 encodeToggleMarket :
@@ -81,8 +153,8 @@ decoderMarket : Decoder Market
 decoderMarket =
     decode Market
         |> required "id" D.string
-        |> optional "totalMatched" (D.map Just D.float) Nothing
-        |> optional "totalAvailable" (D.map Just D.float) Nothing
+        |> optional "total_matched" (D.map Just D.float) Nothing
+        |> optional "total_available" (D.map Just D.float) Nothing
         |> optional "runners" (D.list runner) []
 
 

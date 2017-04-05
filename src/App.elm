@@ -26,7 +26,7 @@ type Page
 
 type alias MarketsPrices =
     { session : String
-    , marketsPrices : Dict String Data.Prices.Market
+    , marketsPrices : Markets
     }
 
 
@@ -40,6 +40,35 @@ type Msg
     | ToggleMarket String
     | ToggleMarketPosted String
     | WebDataError String
+
+
+type alias Markets =
+    Dict String Market
+
+
+type alias Market =
+    { id : String
+    , totalMatched : Maybe Float
+    , totalAvailable : Maybe Float
+    , prices : Data.Prices.MarketPrices
+    }
+
+
+toggleMarket : String -> Dict String Market -> Dict String Market
+toggleMarket marketID marketsPrices =
+    marketsPrices
+        |> Dict.get marketID
+        |> Maybe.map (\_ -> Dict.remove marketID marketsPrices)
+        |> Maybe.withDefault
+            (Dict.insert
+                marketID
+                { id = marketID
+                , totalMatched = Nothing
+                , totalAvailable = Nothing
+                , prices = Dict.empty
+                }
+                marketsPrices
+            )
 
 
 tryGetSportByEventID : Model -> Int -> Maybe Data.Aping.Sport

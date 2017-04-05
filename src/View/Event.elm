@@ -3,17 +3,11 @@ module View.Event exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Data.Aping
-import Data.Prices
-import App exposing (Model, Msg)
+import App exposing (Model, Msg, Markets)
 import DateUtils
 import Dict
 import View.Market
 import View.Help exposing (spinnerText)
-
-
-type alias Markets =
-    Dict.Dict String Data.Prices.Market
-
 
 
 -- VIEW
@@ -70,7 +64,7 @@ split2ColumnsMarkets markets choosenMarkets =
                 |> List.indexedMap
                     (\n market ->
                         ( n % 2
-                        , View.Market.view market (Dict.get market.id markets)
+                        , View.Market.view market markets
                         )
                     )
                 |> List.partition (Tuple.first >> (==) 0)

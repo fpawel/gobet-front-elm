@@ -4,7 +4,7 @@ import Http
 import Json.Decode
 import Data.Prices
 import Help.Utils exposing (websocketURL, isJust, fromResult)
-import App exposing (Msg(..), Page(..), Model)
+import App exposing (Msg(..), Page(..), Model, toggleMarket)
 import Dict
 import String
 
@@ -18,7 +18,7 @@ update m marketID =
                     Dict.get marketID p.marketsPrices
 
                 marketsPrices =
-                    Data.Prices.toggleMarket marketID p.marketsPrices
+                    toggleMarket marketID p.marketsPrices
 
                 include =
                     Dict.get marketID marketsPrices
