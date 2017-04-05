@@ -152,12 +152,12 @@ tdMoney tooltip color value =
             [ style
                 [ ( "color", color ) ]
             ]
-            [ div [ class "tooltip" ]
+            [ div [ class "my-tooltip" ]
                 [ span
                     [ style [ ( "margin-left", "10px" ) ] ]
                     [ text <| (toString <| round value) ++ "$" ]
                 , span
-                    [ class "tooltip-text" ]
+                    [ class "my-tooltiptext" ]
                     [ text tooltip ]
                 ]
             ]
