@@ -4,7 +4,6 @@ import Dict exposing (Dict)
 import Set exposing (Set)
 import Json.Decode as D exposing (Decoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, optional)
-import Help.Utils exposing (isJust)
 import Data.Aping exposing (Event, decoderEvent)
 
 
@@ -13,7 +12,6 @@ type alias Game =
     , marketID : Int
     , home : String
     , away : String
-    , event : Event
     , page : Int
     , order : Int
     , result : String
@@ -27,6 +25,12 @@ type alias Game =
     , inplay : Bool
     , utime : Bool
     , uresult : Bool
+    , uwin1 : Bool
+    , uwin2 : Bool
+    , udraw1 : Bool
+    , udraw2 : Bool
+    , ulose1 : Bool
+    , ulose2 : Bool
     }
 
 
@@ -53,6 +57,7 @@ type alias GameListUpdates =
     { inplay : List Game
     , outplay : List Int
     , changes : List GameUpdates
+    , events : List Event
     }
 
 
@@ -63,21 +68,36 @@ type alias WebData =
 
 
 updateGame : Game -> GameUpdates -> Game
-updateGame x { page, order, time, result, win1, win2, draw1, draw2, lose1, lose2 } =
-    { x
-        | page = Maybe.withDefault x.page page
-        , order = Maybe.withDefault x.order order
-        , time = Maybe.withDefault x.time time
-        , result = Maybe.withDefault x.result result
-        , win1 = Maybe.withDefault x.win1 win1
-        , win2 = Maybe.withDefault x.win2 win2
-        , draw1 = Maybe.withDefault x.draw1 draw1
-        , draw2 = Maybe.withDefault x.draw2 draw2
-        , lose1 = Maybe.withDefault x.lose1 lose1
-        , lose2 = Maybe.withDefault x.lose2 lose2
-        , utime = isJust time
-        , uresult = isJust result
-    }
+updateGame x y =
+    let
+        comp fy fx =
+            case fy y of
+                Just t ->
+                    t /= fx x
+
+                _ ->
+                    False
+    in
+        { x
+            | page = Maybe.withDefault x.page y.page
+            , order = Maybe.withDefault x.order y.order
+            , time = Maybe.withDefault x.time y.time
+            , result = Maybe.withDefault x.result y.result
+            , win1 = Maybe.withDefault x.win1 y.win1
+            , win2 = Maybe.withDefault x.win2 y.win2
+            , draw1 = Maybe.withDefault x.draw1 y.draw1
+            , draw2 = Maybe.withDefault x.draw2 y.draw2
+            , lose1 = Maybe.withDefault x.lose1 y.lose1
+            , lose2 = Maybe.withDefault x.lose2 y.lose2
+            , utime = comp .time .time
+            , uresult = comp .result .result
+            , uwin1 = comp .win1 .win1
+            , uwin2 = comp .win2 .win2
+            , udraw1 = comp .draw1 .draw1
+            , udraw2 = comp .draw2 .draw2
+            , ulose1 = comp .lose1 .lose1
+            , ulose2 = comp .lose2 .lose2
+        }
 
 
 updateGamesList : GameListUpdates -> List Game -> List Game
@@ -132,7 +152,6 @@ decoderGame =
         |> required "market_id" D.int
         |> required "home" D.string
         |> required "away" D.string
-        |> required "event" decoderEvent
         |> required "page" D.int
         |> required "order" D.int
         |> optional "result" D.string ""
@@ -144,6 +163,12 @@ decoderGame =
         |> optional "lose1" (D.maybe D.float) Nothing
         |> optional "lose2" (D.maybe D.float) Nothing
         |> hardcoded True
+        |> hardcoded False
+        |> hardcoded False
+        |> hardcoded False
+        |> hardcoded False
+        |> hardcoded False
+        |> hardcoded False
         |> hardcoded False
         |> hardcoded False
 
@@ -176,6 +201,7 @@ decoderGameListUpdates =
         |> optional "inplay" (D.list decoderGame) []
         |> optional "outplay" (D.list D.int) []
         |> optional "game_changes" (D.list decoderGameCahnges) []
+        |> optional "events" (D.list decoderEvent) []
 
 
 decoderWebData : Decoder WebData

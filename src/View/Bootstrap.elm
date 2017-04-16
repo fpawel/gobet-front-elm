@@ -1,47 +1,33 @@
-module View.Bootstrap exposing (ConfigNav, ConfigDropNav, navbar, mainMenuItem)
+module View.Bootstrap exposing (ConfigNav, navbar, mainMenuItem)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 
 
-type alias ConfigDropNav =
+type alias ConfigNav msg =
     List
-        { name : String
-        , items : ConfigNav
-        }
-
-
-type alias ConfigNav =
-    List
-        { name : String
-        , route : String
+        { content : Html msg
         , active : Bool
         }
 
 
-navbar : ConfigNav -> ConfigDropNav -> Html a
-navbar configNav configDropNav =
-    let
-        navline =
-            liNav configNav
-
-        dropnav =
-            List.map
-                (\{ name, items } -> dropDown { name = name, items = liNav items })
-                configDropNav
-
-        allnav =
-            navline ++ dropnav
-    in
-        nav [ class "navbar navbar-default" ]
-            [ div [ class "container-fluid" ]
-                [ navbarHead
-                , div
-                    [ class "collapse navbar-collapse" ]
-                    [ ul [ class "nav navbar-nav" ] allnav
+navbar : ConfigNav a -> Html a -> Html a
+navbar configNav navRight =
+    nav [ class "navbar navbar-default" ]
+        [ table [ attribute "width" "100%" ]
+            [ tbody []
+                [ tr []
+                    [ td [] [ navbarHead ]
+                    , td [ attribute "width" "100%" ]
+                        [ div
+                            [ class "collapse navbar-collapse" ]
+                            [ ul [ class "nav navbar-nav" ] (liNav configNav) ]
+                        ]
+                    , td [] [ navRight ]
                     ]
                 ]
             ]
+        ]
 
 
 mainMenuItem : String -> List (Html msg) -> Html msg
@@ -84,47 +70,22 @@ navbarHead =
         ]
 
 
-liNav : ConfigNav -> List (Html msg)
+liNav : ConfigNav msg -> List (Html msg)
 liNav =
     List.map
-        (\{ route, name, active } ->
+        (\{ content, active } ->
             li
                 [ classList [ ( "active", active ) ]
                 ]
-                [ Html.a
-                    [ href ("#" ++ route) ]
-                    [ Html.text name ]
+                [ content
                 ]
         )
 
 
-dropDown : { name : String, items : List (Html msg) } -> Html msg
-dropDown { name, items } =
-    li
-        [ class "dropdown" ]
-        [ Html.a
-            [ class "dropdown-toggle"
-            , attribute "data-toggle" "dropdown"
-            , href "#"
-            ]
-            [ Html.text name
-            , span [ class "caret" ] []
-            ]
-        , ul
-            [ class "dropdown-menu" ]
-            items
-        ]
 
-
-
-{--
-view : ConfigNav -> ConfigDropNav -> List (Html msg) -> Html msg
-view configNav configDropNav content =
-    div
-        []
-        [ navbar configNav configDropNav
-        , div
-            [ class "container" ]
-            content
-        ]
---}
+{-
+   Html.a
+       [ href ("#" ++ route) ]
+       [ content ]
+   -
+-}

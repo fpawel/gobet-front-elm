@@ -1,26 +1,25 @@
 port module Main exposing (..)
 
-import Navigation exposing (program)
+import App exposing (Model, Msg(..), Page(..))
+import Data.Aping
+import Data.Football
+import Data.Prices
+import Debug exposing (crash, log)
 import Dict exposing (Dict)
-import WebSocket
+import Help.Utils exposing (fromResult, isJust, websocketURL)
 import Http
 import Json.Decode
 import Navigation exposing (Location)
-import Data.Football
-import Data.Aping
-import Data.Prices
 import Routing exposing (Route(..), parseRoute)
-import Help.Utils exposing (websocketURL, isJust, fromResult)
-import App exposing (Msg(..), Page(..), Model)
-import Update.ToggleMarket
 import Table
-import Debug exposing (crash, log)
+import Update.ToggleMarket
 import View exposing (view)
+import WebSocket
 
 
 main : Program Never Model Msg
 main =
-    program LocationChanged
+    Navigation.program LocationChanged
         { init = init
         , view = view
         , update = update
@@ -38,7 +37,6 @@ init location =
         , page = page
         , footballGames = []
         , sports = Dict.empty
-        , sportEvents = Dict.empty
         , events = Dict.empty
         }
             ! [ cmd
@@ -190,8 +188,14 @@ updateFootball webdata m =
             WebSocket.send
                 (websocketURL m.location ++ "/football")
                 webdata.hashCode
+
+        modelWithNewEvents =
+            App.addFootballEvents webdata.changes.events m
     in
-        { m | footballGames = nextGames } ! [ answer ]
+        { modelWithNewEvents
+            | footballGames = nextGames
+        }
+            ! [ answer ]
 
 
 websocketURLPrices : Navigation.Location -> Int -> String
@@ -249,11 +253,21 @@ updateSportTableState m newTableState =
 
 updateEventsWebData : Model -> Int -> List Data.Aping.Event -> ( Model, Cmd Msg )
 updateEventsWebData m sportID events =
-    { m
-        | events = Data.Aping.insertEvents m.events (dictID events)
-        , sportEvents = Dict.insert sportID (List.map .id events) m.sportEvents
-    }
-        ! []
+    let
+        sport =
+            m.sports
+                |> Dict.get sportID
+                |> Maybe.withDefault { id = sportID, name = "", market_count = 0 }
+
+        dictEventsWithSport =
+            events
+                |> List.map (\a -> { a | sport = sport })
+                |> dictID
+    in
+        { m
+            | events = Data.Aping.insertEvents m.events dictEventsWithSport
+        }
+            ! []
 
 
 updateMarketsPrices : Model -> Data.Prices.WebData -> ( Model, Cmd Msg )

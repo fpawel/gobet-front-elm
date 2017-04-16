@@ -16,14 +16,20 @@ import Dict
 
 view : Model -> Int -> Table.State -> Html App.Msg
 view m sportID tableState =
-    Dict.get sportID m.sportEvents
-        |> Maybe.map
-            (List.filterMap (\id -> Dict.get id m.events)
-                >> Table.view
-                    (config App.SportTableState)
-                    tableState
-            )
-        |> Maybe.withDefault (spinnerText "Подготовка данных...")
+    let
+        events =
+            m.events
+                |> Dict.filter (\_ { sport } -> sport.id == sportID)
+                |> Dict.toList
+                |> List.map Tuple.second
+    in
+        if List.isEmpty events then
+            spinnerText "Подготовка данных..."
+        else
+            Table.view
+                (config App.SportTableState)
+                tableState
+                events
 
 
 linkEvent : Int -> String -> Html msg

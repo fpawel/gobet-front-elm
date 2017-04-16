@@ -1,58 +1,62 @@
 module View.Football exposing (view)
 
-import Html exposing (Html, Attribute, span, div, table, td, tr, th, h3, a, text)
-import Html.Attributes as Attr exposing (class, href)
+import Html exposing (..)
+import Html.Attributes exposing (..)
 import View.Help exposing (spinnerText)
-import Styles as CssA
 import Data.Football exposing (Game)
+import Dict exposing (Dict)
+import Data.Aping exposing (Event)
 
 
-viewGame : Game -> Html a
-viewGame x =
+viewGame : Dict Int Event -> Game -> Html a
+viewGame events x =
     let
-        jello_2s_attrs f =
-            if f then
-                CssA.animated_jello_2s
-            else
-                []
+        td_ changed s =
+            (if changed then
+                td [ class "changed animated zoomIn" ]
+             else
+                td []
+            )
+                [ text s ]
 
-        bounceInUp_2s_attrs f =
-            if f then
-                CssA.animated_bounceInUp_2s
-            else
-                []
+        odd changed y =
+            let
+                value =
+                    Maybe.withDefault "" <| Maybe.map toString y
+            in
+                td_ changed value
 
-        td_ anim s =
-            td (jello_2s_attrs anim) [ Html.text s ]
-
-        odd y =
-            td [] [ Html.text <| Maybe.withDefault "" <| Maybe.map toString y ]
+        country =
+            events
+                |> Dict.get x.eventID
+                |> Maybe.map .country
+                |> Maybe.withDefault ""
     in
         [ td [] [ Html.text <| (toString (x.page + 1)) ++ "." ++ (toString (x.order + 1)) ]
-        , td [] [ Html.text x.event.country ]
-        , td [ Attr.class "home-team" ] [ linkEvent x.event.id x.home ]
+        , td [] [ Html.text country ]
+        , td [ class "home-team" ] [ linkEvent x.eventID x.home ]
         , td_ x.uresult x.result
-        , td [ Attr.class "away-team" ] [ linkEvent x.event.id x.away ]
+        , td [ class "away-team" ] [ linkEvent x.eventID x.away ]
         , td_ x.utime x.time
-        , odd x.win1
-        , odd x.win2
-        , odd x.draw1
-        , odd x.draw2
-        , odd x.lose1
-        , odd x.lose2
+        , odd x.uwin1 x.win1
+        , odd x.uwin2 x.win2
+        , odd x.udraw1 x.draw1
+        , odd x.udraw2 x.draw2
+        , odd x.ulose1 x.lose1
+        , odd x.ulose2 x.lose2
         ]
-            |> tr (bounceInUp_2s_attrs x.inplay)
+            |> tr []
 
 
-viewGamesList : List Game -> Html a
-viewGamesList games =
+viewGamesList : Dict Int Event -> List Game -> Html a
+viewGamesList events games =
     let
         trs =
             games
                 |> List.sortBy (\{ page, order } -> ( page, order ))
-                |> List.map viewGame
+                |> List.map (viewGame events)
 
-        thead =
+        headrow =
             [ "п/п"
             , "Страна"
             , "Дома"
@@ -70,21 +74,21 @@ viewGamesList games =
                 |> tr []
     in
         table
-            [ Attr.class "table table-condensed table-football"
+            [ class "table table-condensed table-football"
             ]
-            [ Html.thead [] [ thead ]
-            , Html.tbody [] trs
+            [ thead [] [ headrow ]
+            , tbody [] trs
             ]
 
 
-view : List Game -> Html a
-view games =
+view : Dict Int Event -> List Game -> Html a
+view events games =
     case games of
         [] ->
             spinnerText "Подготовка данных..."
 
         _ ->
-            viewGamesList games
+            viewGamesList events games
 
 
 linkEvent : Int -> String -> Html msg

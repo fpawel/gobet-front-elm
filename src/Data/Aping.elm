@@ -22,9 +22,8 @@ type alias Event =
     , openDate : Date.Date
     , timezone : String
     , venue : String
-    , decoderSport : Sport
+    , sport : Sport
     , markets : List Market
-    , sportID : Int
     }
 
 
@@ -134,14 +133,13 @@ decoderEvent =
         |> optional "venue" D.string ""
         |> optional "event_type" decoderSport (Sport 0 "" 0)
         |> optional "markets" (D.list decoderMarket) []
-        |> hardcoded 0
 
 
 decoderSport : Decoder Sport
 decoderSport =
     decode Sport
         |> required "id" D.int
-        |> required "name" D.string
+        |> optional "name" D.string ""
         |> optional "market_count" D.int 0
 
 

@@ -13,7 +13,6 @@ type alias Model =
     , page : Page
     , footballGames : List Data.Football.Game
     , sports : Dict Int Data.Aping.Sport
-    , sportEvents : Dict Int (List Int)
     , events : Dict Int Data.Aping.Event
     }
 
@@ -73,16 +72,31 @@ toggleMarket marketID marketsPrices =
 
 tryGetSportByEventID : Model -> Int -> Maybe Data.Aping.Sport
 tryGetSportByEventID m eventID =
-    m.sportEvents
-        |> Dict.toList
-        |> List.concatMap
-            (\( sportID, eventIDs ) ->
-                eventIDs
-                    |> List.map (\eventID -> ( eventID, sportID ))
-            )
-        |> Dict.fromList
+    m.events
         |> Dict.get eventID
-        |> Maybe.andThen
-            (\sportID ->
-                Dict.get sportID m.sports
-            )
+        |> Maybe.map .sport
+
+
+addFootballEvents : List Data.Aping.Event -> Model -> Model
+addFootballEvents webEvents m =
+    let
+        sport =
+            { id = 1, name = "Футбол", market_count = 0 }
+
+        newEvents =
+            webEvents
+                |> List.map (\y -> ( y.id, { y | sport = sport } ))
+                |> Dict.fromList
+
+        nextEvents =
+            Dict.merge
+                Dict.insert
+                (\k _ y -> Dict.insert k y)
+                Dict.insert
+                m.events
+                newEvents
+                Dict.empty
+    in
+        { m
+            | events = nextEvents
+        }
